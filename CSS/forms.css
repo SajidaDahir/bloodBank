@@ -1,0 +1,122 @@
+/* ===========================
+   General Form Page Styling
+=========================== */
+body {
+  background-color: #fdfdfd;
+  font-family: "Poppins", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Centers the form nicely */
+.form-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  background: linear-gradient(to bottom right, #fff5f5, #ffeaea);
+  padding: 30px 10px;
+}
+
+/* Form container box */
+.form-container {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  padding: 30px 40px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Heading */
+.form-container h2 {
+  color: #b30000;
+  margin-bottom: 25px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Label styling */
+.form-container label {
+  display: block;
+  text-align: left;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 5px;
+  margin-top: 15px;
+}
+
+/* Input & select styling */
+.form-container input,
+.form-container select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  outline: none;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.form-container input:focus,
+.form-container select:focus {
+  border-color: #b30000;
+  box-shadow: 0 0 4px rgba(179, 0, 0, 0.3);
+}
+
+/* Buttons */
+.form-container button {
+  background-color: #b30000;
+  color: #fff;
+  border: none;
+  padding: 12px;
+  width: 100%;
+  border-radius: 6px;
+  margin-top: 20px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.form-container button:hover {
+  background-color: #900000;
+}
+
+/* Optional: small signup menu buttons */
+.signup-menu {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.signup-menu button {
+  padding: 10px 25px;
+  border: none;
+  border-radius: 6px;
+  background-color: #b30000;
+  color: #fff;
+  cursor: pointer;
+  margin: 0 10px;
+  transition: 0.3s;
+}
+
+.signup-menu button:hover {
+  background-color: #900000;
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .form-container {
+    padding: 20px;
+  }
+
+  .form-container h2 {
+    font-size: 20px;
+  }
+
+  .signup-menu button {
+    padding: 8px 20px;
+    margin: 5px;
+  }
+}
