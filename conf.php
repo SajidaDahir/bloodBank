@@ -6,7 +6,7 @@ $conf['admin_email'] = 'admin@bloodbank.com';
 
 // Email Configuration (optional)
 $conf['smtp_host'] = 'smtp.gmail.com';
-$conf['smtp_user'] = 'User email';
+$conf['smtp_user'] = 'sajida.sheikh@strathmore.edu';
 $conf['smtp_pass'] = ''; // Use Gmail App Password
 $conf['smtp_port'] = 465;
 
@@ -15,7 +15,7 @@ $conf['db_type'] = 'pdo';
 $conf['db_host'] = 'localhost';
 //$conf['db_port'] = 3307;
 $conf['db_user'] = 'root';
-$conf['db_pass'] = 'your_password';
+$conf['db_pass'] = '';
 $conf['db_name'] = 'bloodbank';
 
 // Database Connection
