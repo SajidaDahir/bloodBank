@@ -6,7 +6,7 @@ class Forms
     {
         ?>
         <h2>Donor Registration</h2>
-        <form method="POST" action="process_donor_signup.php" id="donorSignupForm">
+        <form method="POST" action="auth/donor_signup.php" id="donorSignupForm">
             <label for="fullname">Full Name</label>
             <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
 
@@ -47,7 +47,7 @@ class Forms
     {
         ?>
         <h2>Hospital Registration</h2>
-        <form method="POST" action="process_hospital_signup.php" id="hospitalSignupForm">
+        <form method="POST" action="hospital_signup.php" id="hospitalSignupForm">
             <label for="hospital_name">Hospital Name</label>
             <input type="text" id="hospital_name" name="hospital_name" placeholder="Enter hospital name" required>
 
