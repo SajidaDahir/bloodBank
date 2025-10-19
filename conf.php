@@ -6,7 +6,7 @@ $conf['admin_email'] = 'admin@bloodbank.com';
 
 // Email Configuration (optional)
 $conf['smtp_host'] = 'smtp.gmail.com';
-$conf['smtp_user'] = 'sajida.sheikh@strathmore.edu';
+$conf['smtp_user'] = ''; // Your Gmail address
 $conf['smtp_pass'] = ''; // Use Gmail App Password
 $conf['smtp_port'] = 465;
 
