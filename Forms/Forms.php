@@ -47,21 +47,27 @@ class Forms
     {
         ?>
         <h2>Hospital Registration</h2>
-        <form method="POST" action="hospital_signup.php" id="hospitalSignupForm">
+        <form method="POST" action="auth/hospital_signup.php" id="hospitalSignupForm">
             <label for="hospital_name">Hospital Name</label>
             <input type="text" id="hospital_name" name="hospital_name" placeholder="Enter hospital name" required>
 
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="Enter hospital email" required>
 
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" placeholder="Enter a password" required>
+            <label for="contact_person">Contact Person</label>
+            <input type="text" id="contact_person" name="contact_person" placeholder="Enter hospital contact name" required>
 
             <label for="phone">Phone Number</label>
             <input type="text" id="phone" name="phone" placeholder="e.g. 0712345678" required>
 
             <label for="location">Location</label>
             <input type="text" id="location" name="location" placeholder="Enter hospital location" required>
+
+            <label for="address">Address</label>
+            <input type="text" id="address" name="address" placeholder="Enter specific address" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter a password" required>
 
             <button type="submit">Register Hospital</button>
         </form>
