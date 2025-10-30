@@ -37,8 +37,9 @@ $Objlayout->header($conf);
     </div>
     <ul class="dashboard-links">
         <li><a href="donor_dashboard.php" class="active">Home</a></li>
-        <li><a href="#">Donations</a></li>
-        <li><a href="#">Profile</a></li>
+        <li><a href="blood_requests.php">Requests</a></li>
+        <li><a href="donation_history.php">Donations</a></li>
+        <li><a href="profile.php">Profile</a></li>
         <li><a href="logout.php" class="logout-btn">Logout</a></li>
     </ul>
 </nav>
