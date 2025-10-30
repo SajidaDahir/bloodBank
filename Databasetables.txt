@@ -39,3 +39,15 @@ CREATE TABLE donations (
     FOREIGN KEY (donor_id) REFERENCES donors(id) ON DELETE CASCADE,
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE SET NULL
 );
+
+
+CREATE TABLE blood_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    hospital_id INT NOT NULL,
+    blood_type VARCHAR(10) NOT NULL,
+    units_needed INT NOT NULL,
+    urgency ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
+    status ENUM('Pending', 'Fulfilled', 'Cancelled') DEFAULT 'Pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
+);
