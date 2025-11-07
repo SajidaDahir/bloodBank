@@ -29,9 +29,3 @@ try {
 
 // Site Language
 $conf['site_lang'] = 'en';
-?>
-
-
-
-
-

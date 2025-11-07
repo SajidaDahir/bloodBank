@@ -6,6 +6,13 @@ CREATE TABLE donors (
     phone VARCHAR(20),
     blood_type VARCHAR(10),
     location VARCHAR(100),
+    -- Optional donor profile enhancements
+    date_of_birth DATE NULL,
+    country VARCHAR(100) NULL,
+    address VARCHAR(255) NULL,
+    emergency_contact_name VARCHAR(100) NULL,
+    emergency_contact_phone VARCHAR(30) NULL,
+    is_available TINYINT(1) DEFAULT 1,
     verification_code VARCHAR(10),
     is_verified TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -51,3 +58,49 @@ CREATE TABLE blood_requests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
 );
+
+
+/* Inventory table: tracks available units of each blood type per hospital.
+   This allows the hospital dashboard to display an inventory snapshot.
+*/
+CREATE TABLE blood_inventory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    hospital_id INT NOT NULL,
+    blood_type VARCHAR(10) NOT NULL,
+    units_available INT DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uniq_hosp_btype UNIQUE (hospital_id, blood_type),
+    FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
+);
+
+
+-- Indexes to speed up dashboard/history queries
+-- Safe to run multiple times; add IF NOT EXISTS for MySQL 8.0+
+ALTER TABLE blood_requests
+  ADD INDEX idx_br_hid_created (hospital_id, created_at),
+  ADD INDEX idx_br_status (status);
+
+
+-- Track donor responses to hospital requests
+CREATE TABLE donor_request_responses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    donor_id INT NOT NULL,
+    request_id INT NOT NULL,
+    status ENUM('Accepted','Declined','Completed') DEFAULT 'Accepted',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uniq_donor_request UNIQUE (donor_id, request_id),
+    FOREIGN KEY (donor_id) REFERENCES donors(id) ON DELETE CASCADE,
+    FOREIGN KEY (request_id) REFERENCES blood_requests(id) ON DELETE CASCADE
+);
+
+ALTER TABLE donor_request_responses
+  ADD INDEX idx_drr_donor (donor_id),
+  ADD INDEX idx_drr_request (request_id);
+
+-- For existing databases, apply these migrations:
+-- ALTER TABLE donors ADD COLUMN IF NOT EXISTS date_of_birth DATE NULL;
+-- ALTER TABLE donors ADD COLUMN IF NOT EXISTS country VARCHAR(100) NULL;
+-- ALTER TABLE donors ADD COLUMN IF NOT EXISTS address VARCHAR(255) NULL;
+-- ALTER TABLE donors ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(100) NULL;
+-- ALTER TABLE donors ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(30) NULL;

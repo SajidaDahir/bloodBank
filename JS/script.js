@@ -42,7 +42,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const redirect = (role) => {
         modal.style.display = "none";
         if (isLoginMode) {
-            window.location.href = "signin.php";
+            // Pass role to preselect on the sign-in form
+            const r = role === "hospital" ? "hospital" : "donor";
+            window.location.href = `signin.php?role=${encodeURIComponent(r)}`;
         } else if (role === "donor") {
             window.location.href = "donor_registration.php";
         } else if (role === "hospital") {

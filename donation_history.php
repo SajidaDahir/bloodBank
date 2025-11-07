@@ -4,32 +4,32 @@ require_once 'ClassAutoLoad.php';
 
 // Ensure donor is logged in
 if (!isset($_SESSION['donor_id'])) {
-    header("Location: signin.php");
+    header('Location: signin.php');
     exit();
 }
 
 $donor_id = $_SESSION['donor_id'];
 
 // Fetch donation history from database
-$stmt = $conn->prepare("SELECT * FROM donations WHERE donor_id = :donor_id ORDER BY donation_date DESC");
-$stmt->execute([':donor_id' => $donor_id]);
-$donations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $stmt = $conn->prepare("SELECT donation_date, hospital_name, blood_type, status FROM donations WHERE donor_id = :donor_id ORDER BY donation_date DESC");
+    $stmt->execute([':donor_id' => $donor_id]);
+    $donations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) { $donations = []; }
 
 $conf['page_title'] = 'Donation History';
 $Objlayout->header($conf);
-$Objlayout->nav($conf);
 ?>
 
-<link rel="stylesheet" href="CSS/forms.css">
+<?php $Objlayout->donorDashboardStart($conf, 'history'); ?>
 
-<section class="form-page">
-    <div class="form-container">
-        <h2>🩸 Donation History</h2>
-
-        <?php if (empty($donations)): ?>
-            <p>You haven’t recorded any donations yet.</p>
-        <?php else: ?>
-            <table border="1" cellpadding="10" cellspacing="0" style="width:100%; border-collapse:collapse; text-align:center;">
+<div class="card">
+    <div class="card-title">Donation History</div>
+    <?php if (empty($donations)): ?>
+        <p>You haven't recorded any donations yet.</p>
+    <?php else: ?>
+        <div class="table-wrap">
+            <table class="table">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -49,12 +49,10 @@ $Objlayout->nav($conf);
                     <?php endforeach; ?>
                 </tbody>
             </table>
-        <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</div>
 
-        <a href="donor_dashboard.php" class="btn-submit" style="display:inline-block;margin-top:20px;">⬅ Back to Dashboard</a>
-    </div>
-</section>
+<?php $Objlayout->dashboardEnd(); ?>
+<?php $Objlayout->footer($conf); ?>
 
-<?php
-$Objlayout->footer($conf);
-?>
