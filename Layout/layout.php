@@ -10,7 +10,7 @@ class layout
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title><?php echo $conf['site_name']; ?></title>
+            <title><?php echo isset($conf['page_title']) ? $conf['page_title'] : $conf['site_name']; ?></title>
             <link rel="stylesheet" href="CSS/style.css">
             <script src="JS/script.js" defer></script>
         </head>
@@ -149,6 +149,78 @@ class layout
         </footer>
         </body>
         </html>
+        <?php
+    }
+
+    // Hospital dashboard shell (sidebar + topbar)
+    public function dashboardStart($conf, $active = '')
+    {
+        $site = isset($conf['site_name']) ? $conf['site_name'] : 'Blood Bank';
+        ?>
+        <div class="app">
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <span class="brand-accent"></span>
+                    <div class="brand-text">
+                        <div class="brand-title"><?php echo htmlspecialchars($site); ?></div>
+                        <div class="brand-sub">Hospital Portal</div>
+                    </div>
+                </div>
+                <nav class="sidebar-nav">
+                    <a class="nav-item <?php echo $active==='dashboard'?'active':''; ?>" href="hospital_dashboard.php"><span class="icon">⌁</span><span>Dashboard</span></a>
+                    <a class="nav-item" href="blood_requests.php?action=create"><span class="icon">＋</span><span>Create Request</span></a>
+                    <a class="nav-item <?php echo $active==='history'?'active':''; ?>" href="history.php"><span class="icon">⟲</span><span>History</span></a>
+                    <a class="nav-item <?php echo $active==='inventory'?'active':''; ?>" href="inventory.php"><span class="icon">⬒</span><span>Inventory</span></a>
+                    <a class="nav-item <?php echo $active==='profile'?'active':''; ?>" href="profile.php"><span class="icon">👤</span><span>Profile</span></a>
+                    <a class="nav-item" href="logout.php"><span class="icon">⟂</span><span>Logout</span></a>
+                </nav>
+            </aside>
+            <main class="main">
+                <header class="topbar">
+                    <div class="topbar-title">Hospital Dashboard</div>
+                    <div class="topbar-actions"><button class="icon-btn">🔔<span class="dot" id="notifDot" style="display:none"></span></button><div class="avatar"></div></div>
+                </header>
+                <section class="content">
+        <?php
+    }
+
+    public function dashboardEnd()
+    {
+        ?>
+                </section>
+            </main>
+        </div>
+        <?php
+    }
+
+    // Donor dashboard shell
+    public function donorDashboardStart($conf, $active = '')
+    {
+        $site = isset($conf['site_name']) ? $conf['site_name'] : 'Blood Bank';
+        ?>
+        <div class="app">
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <span class="brand-accent"></span>
+                    <div class="brand-text">
+                        <div class="brand-title"><?php echo htmlspecialchars($site); ?></div>
+                        <div class="brand-sub">Donor Portal</div>
+                    </div>
+                </div>
+                <nav class="sidebar-nav">
+                    <a class="nav-item <?php echo $active==='dashboard'?'active':''; ?>" href="donor_dashboard.php"><span class="icon">⌁</span><span>Dashboard</span></a>
+                    <a class="nav-item <?php echo $active==='requests'?'active':''; ?>" href="blood_requests.php"><span class="icon">❤</span><span>Requests</span></a>
+                    <a class="nav-item <?php echo $active==='history'?'active':''; ?>" href="donation_history.php"><span class="icon">⟲</span><span>History</span></a>
+                    <a class="nav-item <?php echo $active==='profile'?'active':''; ?>" href="profile.php"><span class="icon">👤</span><span>Profile</span></a>
+                    <a class="nav-item" href="logout.php"><span class="icon">⟂</span><span>Logout</span></a>
+                </nav>
+            </aside>
+            <main class="main">
+                <header class="topbar">
+                    <div class="topbar-title">Donor Dashboard</div>
+                    <div class="topbar-actions"><button class="icon-btn">🔔<span class="dot" id="notifDotD" style="display:none"></span></button><div class="avatar"></div></div>
+                </header>
+                <section class="content">
         <?php
     }
 }

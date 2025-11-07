@@ -5,12 +5,19 @@ require_once 'ClassAutoLoad.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
-    $role = $_POST['role']; // donor or hospital
+    $role = strtolower(trim($_POST['role'] ?? ''));
 
-    if (empty($email) || empty($password) || empty($role)) {
+    if (empty($email) || empty($password)) {
         $_SESSION['banner'] = ['type' => 'error', 'message' => 'Please fill all fields.'];
         header("Location: signin.php");
         exit();
+    }
+
+    // Autodetect role if not provided
+    if ($role !== 'donor' && $role !== 'hospital') {
+        try { $chk=$conn->prepare("SELECT id FROM donors WHERE email=:email LIMIT 1"); $chk->execute([':email'=>$email]); if($chk->fetch()){ $role='donor'; } } catch(Exception $e){}
+        if ($role!=='donor') { try { $chk=$conn->prepare("SELECT id FROM hospitals WHERE email=:email LIMIT 1"); $chk->execute([':email'=>$email]); if($chk->fetch()){ $role='hospital'; } } catch(Exception $e){} }
+        if ($role !== 'donor' && $role !== 'hospital') { $_SESSION['banner']=['type'=>'error','message'=>'Please select a role.']; header("Location: signin.php"); exit(); }
     }
 
     if ($role === 'donor') {
@@ -25,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
 
+            session_regenerate_id(true);
+            unset($_SESSION['hospital_id'], $_SESSION['hospital_name']);
             $_SESSION['donor_id'] = $donor['id'];
             $_SESSION['donor_name'] = $donor['fullname'];
             header("Location: donor_dashboard.php");
@@ -46,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
 
+            session_regenerate_id(true);
+            unset($_SESSION['donor_id'], $_SESSION['donor_name']);
             $_SESSION['hospital_id'] = $hospital['id'];
             $_SESSION['hospital_name'] = $hospital['hospital_name'];
             header("Location: hospital_dashboard.php");

@@ -90,9 +90,10 @@ class Forms
 
             <label for="role">Login As</label>
             <select id="role" name="role" required>
+                <?php $pref = isset($_GET['role']) ? strtolower($_GET['role']) : ''; ?>
                 <option value="">-- Select Role --</option>
-                <option value="donor">Donor</option>
-                <option value="hospital">Hospital</option>
+                <option value="donor" <?php echo $pref==='donor' ? 'selected' : ''; ?>>Donor</option>
+                <option value="hospital" <?php echo $pref==='hospital' ? 'selected' : ''; ?>>Hospital</option>
             </select>
 
             <button type="submit">Login</button>
