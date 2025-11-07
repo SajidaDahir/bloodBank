@@ -51,3 +51,25 @@ CREATE TABLE blood_requests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
 );
+
+ALTER TABLE blood_requests
+    ADD COLUMN IF NOT EXISTS patient_name VARCHAR(150) NULL,
+    ADD COLUMN IF NOT EXISTS location VARCHAR(150) NULL,
+    ADD COLUMN IF NOT EXISTS contact VARCHAR(50) NULL,
+    ADD COLUMN IF NOT EXISTS notes TEXT NULL,
+    ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(150) NULL;
+
+ALTER TABLE donations
+    ADD COLUMN IF NOT EXISTS units INT DEFAULT 1;
+
+-- Optionally add recipient_id if you want to track recipient reference
+ALTER TABLE donations
+    ADD COLUMN IF NOT EXISTS recipient_id INT NULL;
+
+
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS date_of_birth DATE NULL;
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS country VARCHAR(100) NULL;
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS address VARCHAR(255) NULL;
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(100) NULL;
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(30) NULL;
+
