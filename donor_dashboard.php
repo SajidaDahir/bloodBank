@@ -6,7 +6,17 @@ if (!isset($_SESSION['donor_id'])) { header('Location: signin.php'); exit(); }
 $donor_id = $_SESSION['donor_id'];
 
 // Accept request
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){ $rid=(int)$_POST['accept_request_id']; try{ $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')"); $q->execute([':did'=>$donor_id,':rid'=>$rid]); }catch(Exception $e){} }
+$accept_msg='';
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){
+    $rid=(int)$_POST['accept_request_id'];
+    try{
+        $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')");
+        $q->execute([':did'=>$donor_id,':rid'=>$rid]);
+        $accept_msg='Accepted';
+    }catch(Exception $e){
+        $accept_msg='Accepted'; // Already accepted or duplicate
+    }
+}
 
 // Toggle availability
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability'])){ try{ $conn->exec("UPDATE donors SET is_available = 1 - IFNULL(is_available,1) WHERE id = ".(int)$donor_id); }catch(Exception $e){} }
@@ -21,7 +31,7 @@ try{ $q=$conn->prepare("SELECT COUNT(*) AS c, MAX(created_at) AS last_dt FROM do
 try{ $q=$conn->prepare("SELECT COUNT(*) FROM blood_requests WHERE status='Pending' AND blood_type=:bt"); $q->execute([':bt'=>$donor['blood_type']]); $pendingMatches=(int)$q->fetchColumn(); }catch(Exception $e){}
 $livesSaved=$totalDonations;
 
-$activeRequests=[]; try{ $q=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.created_at,h.hospital_name,h.city FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id WHERE br.status='Pending' AND br.blood_type=:bt ORDER BY br.created_at DESC LIMIT 6"); $q->execute([':bt'=>$donor['blood_type']]); $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $activeRequests=[]; }
+$activeRequests=[]; try{ $q=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.created_at,h.hospital_name,h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' AND br.blood_type=:bt ORDER BY br.created_at DESC LIMIT 6"); $q->execute([':bt'=>$donor['blood_type'], ':did'=>$donor_id]); $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $activeRequests=[]; }
 
 $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 ?>
@@ -49,6 +59,7 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 
 <div class="card" style="margin-top:14px;">
   <div class="card-title">Active Blood Requests Near You</div>
+  <?php if($accept_msg): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;margin-bottom:10px;">Accepted</div><?php endif; ?>
   <?php if (empty($activeRequests)): ?><p>No matching requests at the moment.</p><?php else: ?>
     <div class="grid" style="grid-template-columns:1fr; gap:12px;">
       <?php foreach ($activeRequests as $req): ?>
@@ -58,8 +69,11 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
           <div><strong>Hospital:</strong> <?php echo htmlspecialchars($req['hospital_name']); ?></div>
           <div><strong>Units needed:</strong> <?php echo (int)$req['units_needed']; ?> units</div>
           <div style="display:flex; gap:10px; margin-top:10px;">
-            <form method="post"><input type="hidden" name="accept_request_id" value="<?php echo (int)$req['id']; ?>" /><button class="btn-primary" type="submit">Accept Request</button></form>
-            <a class="btn-outline" href="blood_requests.php" style="display:inline-flex;align-items:center;">View Details</a>
+            <?php if (!empty($req['accepted'])): ?>
+              <span style="color:#065f46;">Accepted</span>
+            <?php else: ?>
+              <form method="post"><input type="hidden" name="accept_request_id" value="<?php echo (int)$req['id']; ?>" /><button class="btn-primary" type="submit">Accept Request</button></form>
+            <?php endif; ?>
           </div>
         </div>
       <?php endforeach; ?>
@@ -68,4 +82,3 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 </div>
 
 <?php $Objlayout->dashboardEnd(); $Objlayout->footer($conf); ?>
-

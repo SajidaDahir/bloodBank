@@ -7,23 +7,76 @@ if (isset($_SESSION['hospital_id'])) {
     $hospital_id = $_SESSION['hospital_id'];
     $filter = isset($_GET['filter']) ? $_GET['filter'] : 'active';
     $where = "hospital_id = :hid";
-    if ($filter === 'active') { $where .= " AND (status IS NULL OR status NOT IN ('closed','completed','fulfilled'))"; }
-    elseif ($filter === 'history') { $where .= " AND status IN ('closed','completed','fulfilled')"; }
+    if ($filter === 'active') { $where .= " AND status = 'Pending'"; }
+    elseif ($filter === 'history') { $where .= " AND status IN ('Fulfilled','Cancelled')"; }
 
-    $created = false; $error='';
+    $created = false; $updated_msg=''; $error='';
     if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['create_request'])) {
         try {
+            // Ensure urgency matches DB enum values
+            $allowedUrg = ['Low','Medium','High'];
+            $urg = trim((string)($_POST['urgency'] ?? ''));
+            if (!in_array($urg, $allowedUrg, true)) { $urg = 'Medium'; }
+
             $q=$conn->prepare("INSERT INTO blood_requests(hospital_id,blood_type,units_needed,urgency,status,created_at) VALUES(:hid,:bt,:u,:urg,'Pending',NOW())");
-            $q->execute([':hid'=>$hospital_id,':bt'=>trim($_POST['blood_type']),':u'=>(int)$_POST['units_needed'],':urg'=>trim($_POST['urgency'])]);
+            $q->execute([':hid'=>$hospital_id,':bt'=>trim($_POST['blood_type']),':u'=>(int)$_POST['units_needed'],':urg'=>$urg]);
             $created=true;
         } catch(Exception $e){ $error='Could not create request.'; }
+    }
+
+    // Mark request as fulfilled (hospital action) and auto-create donation records
+    if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['fulfill_request_id'])) {
+        $rid = (int)$_POST['fulfill_request_id'];
+        try {
+            $conn->beginTransaction();
+            $q=$conn->prepare("UPDATE blood_requests SET status='Fulfilled' WHERE id=:rid AND hospital_id=:hid AND status='Pending'");
+            $q->execute([':rid'=>$rid, ':hid'=>$hospital_id]);
+            if ($q->rowCount()===0) { throw new Exception('No pending request to fulfill.'); }
+
+            // Fetch request details and hospital name
+            $req = null; $hospitalName = '';
+            try { $s=$conn->prepare("SELECT blood_type, units_needed FROM blood_requests WHERE id=:rid"); $s->execute([':rid'=>$rid]); $req=$s->fetch(PDO::FETCH_ASSOC); } catch(Exception $e){}
+            try { $s=$conn->prepare("SELECT hospital_name FROM hospitals WHERE id=:hid"); $s->execute([':hid'=>$hospital_id]); $hospitalName=(string)$s->fetchColumn(); } catch(Exception $e){}
+
+            // Get accepting donors for this request
+            $donors=[]; try{ $s=$conn->prepare("SELECT donor_id FROM donor_request_responses WHERE request_id=:rid AND status='Accepted'"); $s->execute([':rid'=>$rid]); $donors=$s->fetchAll(PDO::FETCH_COLUMN,0); }catch(Exception $e){ $donors=[]; }
+
+            if (!empty($donors)){
+                $ins=$conn->prepare("INSERT INTO donations(donor_id,hospital_id,hospital_name,blood_type,status) VALUES(:did,:hid,:hname,:bt,'Completed')");
+                foreach($donors as $did){
+                    try { $ins->execute([':did'=>(int)$did, ':hid'=>$hospital_id, ':hname'=>$hospitalName, ':bt'=>$req ? (string)$req['blood_type'] : '' ]); } catch(Exception $e) { /* skip duplicate or schema issues */ }
+                }
+                // Increment inventory for this hospital and blood type by number of completed donations
+                if ($req && !empty($req['blood_type'])){
+                    $inc = count($donors);
+                    if (isset($req['units_needed'])) { $inc = min($inc, (int)$req['units_needed']); }
+                    try {
+                        $up=$conn->prepare("INSERT INTO blood_inventory(hospital_id,blood_type,units_available,updated_at) VALUES(:hid,:bt,:u,NOW()) ON DUPLICATE KEY UPDATE units_available = units_available + VALUES(units_available), updated_at = NOW()");
+                        $up->execute([':hid'=>$hospital_id, ':bt'=>$req['blood_type'], ':u'=>$inc]);
+                    } catch(Exception $e) { /* ignore inventory failures */ }
+                }
+            }
+
+            $conn->commit();
+            $updated_msg='Request marked as fulfilled.';
+        } catch(Exception $e){ if($conn && $conn->inTransaction()){ $conn->rollBack(); } $error='Unable to fulfill this request.'; }
+    }
+
+    // Cancel request (hospital action)
+    if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['cancel_request_id'])) {
+        $rid = (int)$_POST['cancel_request_id'];
+        try {
+            $q=$conn->prepare("UPDATE blood_requests SET status='Cancelled' WHERE id=:rid AND hospital_id=:hid AND status='Pending'");
+            $q->execute([':rid'=>$rid, ':hid'=>$hospital_id]);
+            if ($q->rowCount()>0) { $updated_msg='Request cancelled.'; } else { $error='Unable to cancel this request.'; }
+        } catch(Exception $e){ $error='Unable to cancel this request.'; }
     }
 
     $sql="SELECT id,blood_type,units_needed,urgency,status,created_at FROM blood_requests WHERE $where ORDER BY created_at DESC";
     $stmt=$conn->prepare($sql); $stmt->execute([':hid'=>$hospital_id]); $requests=$stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $conf['page_title']='Hospital Requests | BloodBank'; $Objlayout->header($conf); $Objlayout->dashboardStart($conf,''); ?>
-    <?php if($created): ?><div class="card" style="border-color:#d1fae5;background:#ecfdf5;color:#065f46;">Request created successfully.</div><?php elseif(!empty($error)): ?><div class="card" style="border-color:#fee2e2;background:#fef2f2;color:#991b1b;"><?php echo $error; ?></div><?php endif; ?>
+    <?php if($created): ?><div class="card" style="border-color:#d1fae5;background:#ecfdf5;color:#065f46;">Request created successfully.</div><?php elseif(!empty($updated_msg)): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;"><?php echo htmlspecialchars($updated_msg); ?></div><?php elseif(!empty($error)): ?><div class="card" style="border-color:#fee2e2;background:#fef2f2;color:#991b1b;"><?php echo $error; ?></div><?php endif; ?>
     <div class="grid stats-grid" style="margin-bottom:12px;">
         <div class="card stat"><div class="stat-title">Filter</div><div class="stat-hint">Viewing: <?php echo htmlspecialchars(ucfirst($filter)); ?></div></div>
         <div class="card stat"><div class="stat-title">Requests</div><div class="stat-value"><?php echo count($requests); ?></div><div class="stat-hint">in list</div></div>
@@ -34,12 +87,12 @@ if (isset($_SESSION['hospital_id'])) {
             <input type="hidden" name="create_request" value="1" />
             <div><label style="display:block;color:#6b7280;font-size:12px;">Blood Type</label><input name="blood_type" required placeholder="A+, O-, …" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;"/></div>
             <div><label style="display:block;color:#6b7280;font-size:12px;">Units</label><input name="units_needed" type="number" min="1" value="1" required style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;"/></div>
-            <div><label style="display:block;color:#6b7280;font-size:12px;">Urgency</label><select name="urgency" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;"><option>Normal</option><option>High</option><option>Critical</option></select></div>
+            <div><label style="display:block;color:#6b7280;font-size:12px;">Urgency</label><select name="urgency" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
             <div style="align-self:end;"><button class="btn-primary" type="submit" style="width:100%;padding:10px 14px;">Post Request</button></div>
         </form>
     </div>
     <div class="card" style="margin-top:12px;"><div class="card-title">Requests List</div>
-        <?php if(empty($requests)): ?><p>No requests found.</p><?php else: ?><div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Status</th><th>Requested</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units_needed']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
+        <?php if(empty($requests)): ?><p>No requests found.</p><?php else: ?><div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units_needed']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td><td><?php if(strcasecmp((string)$r['status'],'Pending')===0): ?><form method="post" style="display:inline;"><input type="hidden" name="fulfill_request_id" value="<?php echo (int)$r['id']; ?>"/><button class="btn-primary" type="submit" style="margin-right:6px;">Mark Fulfilled</button></form><form method="post" style="display:inline;"><input type="hidden" name="cancel_request_id" value="<?php echo (int)$r['id']; ?>"/><button class="btn-outline" type="submit">Cancel</button></form><?php else: ?><span style="color:#065f46;">Done</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
     </div>
     <?php $Objlayout->dashboardEnd(); $Objlayout->footer($conf); exit; }
 
@@ -75,4 +128,3 @@ $conf['page_title']='Blood Requests | BloodBank'; $Objlayout->header($conf); ?>
  </tbody></table></div>
 <?php endif; ?></div>
 <?php $Objlayout->dashboardEnd(); $Objlayout->footer($conf); ?>
-
