@@ -7,7 +7,11 @@ $hospital_id = $_SESSION['hospital_id'];
 
 $requests=[]; $counts=['completed'=>0,'cancelled'=>0,'fulfilled'=>0];
 try {
-    $stmt=$conn->prepare("SELECT id,blood_type,units_needed,urgency,status,created_at FROM blood_requests WHERE hospital_id=:hid AND (status IN ('Fulfilled','Completed','Cancelled','closed','completed','cancelled','fulfilled')) ORDER BY created_at DESC");
+    $stmt=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.status,br.created_at,
+        (SELECT GROUP_CONCAT(d.fullname SEPARATOR ', ') FROM donor_request_responses drr JOIN donors d ON d.id=drr.donor_id WHERE drr.request_id=br.id AND drr.status='Accepted') AS donors
+        FROM blood_requests br
+        WHERE br.hospital_id=:hid AND (br.status IN ('Fulfilled','Completed','Cancelled','closed','completed','cancelled','fulfilled'))
+        ORDER BY br.created_at DESC");
     $stmt->execute([':hid'=>$hospital_id]);
     $requests=$stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach($requests as $r){ $s=strtolower((string)$r['status']); if(strpos($s,'complete')!==false)$counts['completed']++; elseif(strpos($s,'cancel')!==false)$counts['cancelled']++; elseif(strpos($s,'fulfill')!==false)$counts['fulfilled']++; }
@@ -27,7 +31,7 @@ $Objlayout->header($conf);
 
 <div class="card"><div class="card-title">Request History</div>
   <?php if(empty($requests)): ?><p>No historical requests yet.</p><?php else: ?>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Status</th><th>Date</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units_needed']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td></tr><?php endforeach; ?></tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Accepted Donors</th><th>Status</th><th>Date</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units_needed']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['donors'] ?? ''); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td></tr><?php endforeach; ?></tbody></table></div>
   <?php endif; ?>
 </div>
 

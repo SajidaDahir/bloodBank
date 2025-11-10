@@ -26,6 +26,38 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){
             $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')");
             $q->execute([':did'=>$donor_id,':rid'=>$rid]);
             $accept_msg='Accepted';
+            // Notify hospital of new donor acceptance
+            try {
+                $hidStmt = $conn->prepare("SELECT hospital_id FROM blood_requests WHERE id=:rid");
+                $hidStmt->execute([':rid'=>$rid]);
+                $hid = (int)$hidStmt->fetchColumn();
+                if ($hid) {
+                    $dname = isset($_SESSION['donor_name']) ? (string)$_SESSION['donor_name'] : '';
+                    if ($dname==='') { try { $nm=$conn->prepare("SELECT fullname FROM donors WHERE id=:id"); $nm->execute([':id'=>$donor_id]); $dname=(string)$nm->fetchColumn(); } catch(Exception $e){} }
+                    $title = 'New donor accepted your request';
+                    $body  = trim($dname) !== '' ? ($dname.' accepted request #'.$rid) : ('A donor accepted request #'.$rid);
+                    $link  = 'blood_requests.php?filter=active';
+                    $insN  = $conn->prepare("INSERT INTO notifications(recipient_type,recipient_id,title,body,link) VALUES('hospital',:rid,:t,:b,:l)");
+                    $insN->execute([':rid'=>$hid, ':t'=>$title, ':b'=>$body, ':l'=>$link]);
+                    // Send email to hospital (best-effort)
+                    try {
+                        $hs=$conn->prepare("SELECT hospital_name,email FROM hospitals WHERE id=:id");
+                        $hs->execute([':id'=>$hid]);
+                        $hrow=$hs->fetch(PDO::FETCH_ASSOC);
+                        if ($hrow && !empty($conf['smtp_user'])) {
+                            $mailContent = [
+                                'name_from'  => $conf['site_name'],
+                                'email_from' => $conf['smtp_user'],
+                                'name_to'    => $hrow['hospital_name'] ?? 'Hospital',
+                                'email_to'   => $hrow['email'] ?? '',
+                                'subject'    => 'A donor accepted your blood request',
+                                'body'       => '<p>' . htmlspecialchars($dname ? $dname : 'A donor') . ' accepted request #' . (int)$rid . '</p>'
+                            ];
+                            $ObjSendMail->Send_Mail($conf, $mailContent);
+                        }
+                    } catch(Exception $me){}
+                }
+            } catch(Exception $e) { /* ignore notification errors */ }
         }catch(Exception $e){
             $accept_msg='Accepted'; // Already accepted or duplicate
         }
@@ -52,6 +84,12 @@ if (empty($donor['is_available'])) { $pendingMatches = 0; }
 $livesSaved=$totalDonations;
 
 $activeRequests=[]; if (!empty($donor['is_available'])) { try{ $q=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.created_at,h.hospital_name,h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' AND br.blood_type=:bt ORDER BY br.created_at DESC LIMIT 6"); $q->execute([':bt'=>$donor['blood_type'], ':did'=>$donor_id]); $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $activeRequests=[]; } }
+
+// Notifications for donor
+$notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at,is_read FROM notifications WHERE recipient_type='donor' AND recipient_id=:id ORDER BY is_read ASC, created_at DESC LIMIT 5"); $nn->execute([':id'=>$donor_id]); $notifications=$nn->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $notifications=[]; }
+
+// Appointments for donor (upcoming and recent)
+$appointments=[]; try{ $ap=$conn->prepare("SELECT a.id,a.scheduled_at,a.status,h.hospital_name FROM appointments a JOIN hospitals h ON h.id=a.hospital_id WHERE a.donor_id=:id ORDER BY a.scheduled_at DESC LIMIT 5"); $ap->execute([':id'=>$donor_id]); $appointments=$ap->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $appointments=[]; }
 
 $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 ?>
@@ -102,6 +140,33 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
+</div>
+
+<div class="grid" style="grid-template-columns:1fr; gap:12px; margin-top:14px;">
+  <div class="card">
+    <div class="card-title">Notifications</div>
+    <?php if(empty($notifications)): ?><p>No notifications yet.</p><?php else: ?>
+      <ul style="list-style:none;padding:0;margin:0;">
+        <?php foreach($notifications as $n): ?>
+          <li style="padding:8px 0;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:600;"><?php echo htmlspecialchars($n['title']); ?></div>
+            <div style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($n['body'] ?? ''); ?></div>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Appointments</div>
+    <?php if(empty($appointments)): ?><p>No appointments scheduled.</p><?php else: ?>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Hospital</th><th>When</th><th>Status</th></tr></thead><tbody>
+        <?php foreach($appointments as $a): ?>
+          <tr><td><?php echo htmlspecialchars($a['hospital_name']); ?></td><td><?php echo date('M j, Y H:i', strtotime($a['scheduled_at'])); ?></td><td><?php echo htmlspecialchars($a['status']); ?></td></tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php $Objlayout->dashboardEnd(); $Objlayout->footer($conf); ?>

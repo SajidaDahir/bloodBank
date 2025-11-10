@@ -12,10 +12,53 @@ try { $q=$conn->prepare("SELECT COUNT(*) FROM blood_requests WHERE hospital_id=:
 try { $q=$conn->prepare("SELECT COUNT(*) FROM blood_requests WHERE hospital_id=:hid AND (status IS NULL OR status NOT IN ('closed','completed','fulfilled'))"); $q->execute([':hid'=>$hospital_id]); $stats['active']=(int)$q->fetchColumn(); } catch(Exception $e){}
 try { $q=$conn->prepare("SELECT COALESCE(SUM(units_available),0) FROM blood_inventory WHERE hospital_id=:hid"); $q->execute([':hid'=>$hospital_id]); $stats['units']=(int)$q->fetchColumn(); } catch(Exception $e){}
 
+// Appointment action: mark completed (single action)
+$banner='';
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['complete_appointment_id'])){
+    $aid=(int)$_POST['complete_appointment_id'];
+    try {
+        $ok=false; $ap=$conn->prepare("SELECT a.donor_id,a.hospital_id,a.request_id,a.scheduled_at, br.blood_type FROM appointments a JOIN blood_requests br ON br.id=a.request_id WHERE a.id=:id");
+        $ap->execute([':id'=>$aid]);
+        $row=$ap->fetch(PDO::FETCH_ASSOC);
+        if($row && (int)$row['hospital_id']===$hospital_id){ $ok=true; }
+        if ($ok){
+            // Set appointment completed
+            $up=$conn->prepare("UPDATE appointments SET status='Completed' WHERE id=:id");
+            $up->execute([':id'=>$aid]);
+
+            // Insert donation record
+            try {
+                $hn=''; $h=$conn->prepare("SELECT hospital_name FROM hospitals WHERE id=:id"); $h->execute([':id'=>$hospital_id]); $hn=(string)$h->fetchColumn();
+                $ins=$conn->prepare("INSERT INTO donations(donor_id,hospital_id,hospital_name,blood_type,status) VALUES(:did,:hid,:hname,:bt,'Completed')");
+                $ins->execute([':did'=>(int)$row['donor_id'], ':hid'=>$hospital_id, ':hname'=>$hn, ':bt'=>$row['blood_type'] ?? '' ]);
+                // Optional: increment inventory by 1 for this blood type
+                try { $upinv=$conn->prepare("INSERT INTO blood_inventory(hospital_id,blood_type,units_available,updated_at) VALUES(:hid,:bt,1,NOW()) ON DUPLICATE KEY UPDATE units_available = units_available + 1, updated_at = NOW()"); $upinv->execute([':hid'=>$hospital_id, ':bt'=>$row['blood_type'] ?? '' ]); } catch(Exception $ie){}
+            } catch(Exception $ie){}
+
+            // Notify donor
+            try {
+                $title='Appointment completed';
+                $body='Thank you for donating. Your appointment has been completed.';
+                $link='donation_history.php';
+                $n=$conn->prepare("INSERT INTO notifications(recipient_type,recipient_id,title,body,link) VALUES('donor',:rid,:t,:b,:l)");
+                $n->execute([':rid'=>(int)$row['donor_id'], ':t'=>$title, ':b'=>$body, ':l'=>$link]);
+            } catch(Exception $ne){}
+
+            $banner='Appointment marked as completed.';
+        }
+    } catch(Exception $e){ $banner='Unable to complete appointment.'; }
+}
+
+// Hospital notifications and appointments
+$notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at,is_read FROM notifications WHERE recipient_type='hospital' AND recipient_id=:id ORDER BY is_read ASC, created_at DESC LIMIT 5"); $nn->execute([':id'=>$hospital_id]); $notifications=$nn->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $notifications=[]; }
+$appointments=[]; try{ $ap=$conn->prepare("SELECT a.id,a.scheduled_at,a.status,d.fullname, br.blood_type FROM appointments a JOIN donors d ON d.id=a.donor_id JOIN blood_requests br ON br.id=a.request_id WHERE a.hospital_id=:hid ORDER BY a.scheduled_at ASC LIMIT 8"); $ap->execute([':hid'=>$hospital_id]); $appointments=$ap->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $appointments=[]; }
+
 $conf['page_title']='BloodBank | Hospital Dashboard';
 $Objlayout->header($conf);
 ?>
 <?php $Objlayout->dashboardStart($conf,'dashboard'); ?>
+
+<?php if(!empty($banner)): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;"><?php echo htmlspecialchars($banner); ?></div><?php endif; ?>
 
 <div class="grid stats-grid">
   <div class="card stat"><div class="stat-title">Total Requests</div><div class="stat-value"><?php echo (int)$stats['total']; ?></div><div class="stat-hint">All time</div></div>
@@ -43,6 +86,48 @@ $Objlayout->header($conf);
   <?php if(!empty($requests)): ?>
     <div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Status</th><th>Requested</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td></tr><?php endforeach; ?></tbody></table></div>
   <?php else: ?><p>No recent requests found.</p><?php endif; ?>
+</div>
+
+<div class="grid" style="grid-template-columns:1fr; gap:12px;">
+  <div class="card">
+    <div class="card-title">Notifications</div>
+    <?php if(empty($notifications)): ?><p>No notifications.</p><?php else: ?>
+      <ul style="list-style:none;padding:0;margin:0;">
+        <?php foreach($notifications as $n): ?>
+          <li style="padding:8px 0;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:600;"><?php echo htmlspecialchars($n['title']); ?></div>
+            <div style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($n['body'] ?? ''); ?></div>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Appointments</div>
+    <?php if(empty($appointments)): ?><p>No appointments scheduled.</p><?php else: ?>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Donor</th><th>Blood Type</th><th>When</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        <?php foreach($appointments as $a): ?>
+          <tr>
+            <td><?php echo htmlspecialchars($a['fullname']); ?></td>
+            <td><?php echo htmlspecialchars($a['blood_type']); ?></td>
+            <td><?php echo date('M j, Y H:i', strtotime($a['scheduled_at'])); ?></td>
+            <td><?php echo htmlspecialchars($a['status']); ?></td>
+            <td>
+              <?php if (strcasecmp((string)$a['status'],'Completed')!==0): ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="complete_appointment_id" value="<?php echo (int)$a['id']; ?>" />
+                  <button class="btn-primary" type="submit">Mark Completed</button>
+                </form>
+              <?php else: ?>
+                <span style="color:#065f46;">Done</span>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php $Objlayout->dashboardEnd(); ?>

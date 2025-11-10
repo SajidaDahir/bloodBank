@@ -85,3 +85,28 @@ CREATE TABLE blood_inventory (
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
 );
 
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    recipient_type ENUM('donor','hospital') NOT NULL,
+    recipient_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    body TEXT NULL,
+    link VARCHAR(255) NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE appointments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    donor_id INT NOT NULL,
+    hospital_id INT NOT NULL,
+    request_id INT NOT NULL,
+    scheduled_at DATETIME NOT NULL,
+    status ENUM('Pending','Confirmed','Completed','Cancelled') NOT NULL DEFAULT 'Pending',
+    notes VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (donor_id) REFERENCES donors(id) ON DELETE CASCADE,
+    FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE,
+    FOREIGN KEY (request_id) REFERENCES blood_requests(id) ON DELETE CASCADE
+);
+
