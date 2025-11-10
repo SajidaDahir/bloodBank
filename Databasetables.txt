@@ -1,5 +1,3 @@
--- Fresh schema (no ALTER statements). Run in order.
-
 CREATE TABLE donors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     fullname VARCHAR(100) NOT NULL,
