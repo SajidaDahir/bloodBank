@@ -17,9 +17,13 @@ if (isset($_SESSION['hospital_id'])) {
             $allowedUrg = ['Low','Medium','High'];
             $urg = trim((string)($_POST['urgency'] ?? ''));
             if (!in_array($urg, $allowedUrg, true)) { $urg = 'Medium'; }
+            // Validate blood type strictly
+            $allowedBT = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+            $bt = strtoupper(trim((string)($_POST['blood_type'] ?? '')));
+            if (!in_array($bt, $allowedBT, true)) { throw new Exception('Invalid blood type'); }
 
             $q=$conn->prepare("INSERT INTO blood_requests(hospital_id,blood_type,units_needed,urgency,status,created_at) VALUES(:hid,:bt,:u,:urg,'Pending',NOW())");
-            $q->execute([':hid'=>$hospital_id,':bt'=>trim($_POST['blood_type']),':u'=>(int)$_POST['units_needed'],':urg'=>$urg]);
+            $q->execute([':hid'=>$hospital_id,':bt'=>$bt,':u'=>(int)$_POST['units_needed'],':urg'=>$urg]);
             $created=true;
         } catch(Exception $e){ $error='Could not create request.'; }
     }

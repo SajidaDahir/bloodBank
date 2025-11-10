@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fullname = trim($_POST['fullname'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $blood_type = trim($_POST['blood_type'] ?? '');
+    $blood_type = strtoupper(trim($_POST['blood_type'] ?? ''));
     $dob = trim($_POST['dob'] ?? '');
     $city = trim($_POST['city'] ?? '');
     $country = trim($_POST['country'] ?? '');
@@ -37,16 +37,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ec_name = trim($_POST['ec_name'] ?? '');
     $ec_phone = trim($_POST['ec_phone'] ?? '');
 
-    try {
-        $stmt = $conn->prepare("UPDATE donors SET fullname = :fullname, phone = :phone, blood_type = :blood_type, location = :location WHERE id = :id");
-        $stmt->execute([':fullname'=>$fullname, ':phone'=>$phone, ':blood_type'=>$blood_type, ':location'=>$city, ':id'=>$donor_id]);
-        if ($email !== '') { try { $q=$conn->prepare("UPDATE donors SET email=:e WHERE id=:id"); $q->execute([':e'=>$email, ':id'=>$donor_id]); } catch(Exception $e){} }
-        if ($dob !== '') { try { $q=$conn->prepare("UPDATE donors SET date_of_birth=:d WHERE id=:id"); $q->execute([':d'=>$dob, ':id'=>$donor_id]); } catch(Exception $e){} }
-        if ($country !== '') { try { $q=$conn->prepare("UPDATE donors SET country=:c WHERE id=:id"); $q->execute([':c'=>$country, ':id'=>$donor_id]); } catch(Exception $e){} }
-        if ($address !== '') { try { $q=$conn->prepare("UPDATE donors SET address=:a WHERE id=:id"); $q->execute([':a'=>$address, ':id'=>$donor_id]); } catch(Exception $e){} }
-        if ($ec_name !== '' || $ec_phone !== '') { try { $q=$conn->prepare("UPDATE donors SET emergency_contact_name=:n, emergency_contact_phone=:p WHERE id=:id"); $q->execute([':n'=>$ec_name, ':p'=>$ec_phone, ':id'=>$donor_id]); } catch(Exception $e){} }
-        $message='Profile updated successfully!'; $messageClass='success';
-    } catch(Exception $e){ $message='Could not update profile.'; $messageClass='error'; }
+    // Validate blood type strictly against allowed set
+    $validBloodTypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+    if (!in_array($blood_type, $validBloodTypes, true)) {
+        $message = 'Invalid blood type selected.'; $messageClass = 'error';
+    } else {
+        try {
+            $stmt = $conn->prepare("UPDATE donors SET fullname = :fullname, phone = :phone, blood_type = :blood_type, location = :location WHERE id = :id");
+            $stmt->execute([':fullname'=>$fullname, ':phone'=>$phone, ':blood_type'=>$blood_type, ':location'=>$city, ':id'=>$donor_id]);
+            if ($email !== '') { try { $q=$conn->prepare("UPDATE donors SET email=:e WHERE id=:id"); $q->execute([':e'=>$email, ':id'=>$donor_id]); } catch(Exception $e){} }
+            if ($dob !== '') { try { $q=$conn->prepare("UPDATE donors SET date_of_birth=:d WHERE id=:id"); $q->execute([':d'=>$dob, ':id'=>$donor_id]); } catch(Exception $e){} }
+            if ($country !== '') { try { $q=$conn->prepare("UPDATE donors SET country=:c WHERE id=:id"); $q->execute([':c'=>$country, ':id'=>$donor_id]); } catch(Exception $e){} }
+            if ($address !== '') { try { $q=$conn->prepare("UPDATE donors SET address=:a WHERE id=:id"); $q->execute([':a'=>$address, ':id'=>$donor_id]); } catch(Exception $e){} }
+            if ($ec_name !== '' || $ec_phone !== '') { try { $q=$conn->prepare("UPDATE donors SET emergency_contact_name=:n, emergency_contact_phone=:p WHERE id=:id"); $q->execute([':n'=>$ec_name, ':p'=>$ec_phone, ':id'=>$donor_id]); } catch(Exception $e){} }
+            $message='Profile updated successfully!'; $messageClass='success';
+        } catch(Exception $e){ $message='Could not update profile.'; $messageClass='error'; }
+    }
 }
 
 $stmt=$conn->prepare("SELECT * FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC);

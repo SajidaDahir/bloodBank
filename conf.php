@@ -30,5 +30,15 @@ try {
 // Ensure required columns exist (lightweight bootstrap migrations)
 try { $conn->exec("ALTER TABLE donors ADD COLUMN IF NOT EXISTS is_available TINYINT(1) NOT NULL DEFAULT 1"); } catch (Exception $e) { /* ignore */ }
 
+// Harden donors.blood_type as ENUM with cleanup to avoid migration failure
+try { $conn->exec("UPDATE donors SET blood_type = UPPER(blood_type)"); } catch (Exception $e) { /* ignore */ }
+try { $conn->exec("UPDATE donors SET blood_type = NULL WHERE blood_type IS NOT NULL AND UPPER(blood_type) NOT IN ('A+','A-','B+','B-','O+','O-','AB+','AB-')"); } catch (Exception $e) { /* ignore */ }
+try { $conn->exec("ALTER TABLE donors MODIFY COLUMN blood_type ENUM('A+','A-','B+','B-','O+','O-','AB+','AB-') NULL"); } catch (Exception $e) { /* ignore */ }
+
+// Harden blood_requests.blood_type similarly
+try { $conn->exec("UPDATE blood_requests SET blood_type = UPPER(blood_type)"); } catch (Exception $e) { /* ignore */ }
+try { $conn->exec("UPDATE blood_requests SET blood_type = NULL WHERE blood_type IS NOT NULL AND UPPER(blood_type) NOT IN ('A+','A-','B+','B-','O+','O-','AB+','AB-')"); } catch (Exception $e) { /* ignore */ }
+try { $conn->exec("ALTER TABLE blood_requests MODIFY COLUMN blood_type ENUM('A+','A-','B+','B-','O+','O-','AB+','AB-') NOT NULL"); } catch (Exception $e) { /* ignore */ }
+
 // Site Language
 $conf['site_lang'] = 'en';

@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email      = trim($_POST['email']);
     $password   = $_POST['password'];
     $phone      = trim($_POST['phone']);
-    $blood_type = trim($_POST['blood_type']);
+    $blood_type = strtoupper(trim($_POST['blood_type']));
     $location   = trim($_POST['location']);
 
     // Basic validation
@@ -15,6 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['banner'] = [
             'type' => 'error',
             'message' => '⚠️ All fields are required!'
+        ];
+        header("Location: ../donor_registration.php");
+        exit();
+    }
+
+    // Strict blood type validation
+    $validBloodTypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+    if (!in_array($blood_type, $validBloodTypes, true)) {
+        $_SESSION['banner'] = [
+            'type' => 'error',
+            'message' => 'Invalid blood type selected.'
         ];
         header("Location: ../donor_registration.php");
         exit();
