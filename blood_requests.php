@@ -99,14 +99,16 @@ if (isset($_SESSION['hospital_id'])) {
 // Donor view
 if (!isset($_SESSION['donor_id'])) { header('Location: signin.php'); exit(); }
 $donor_id = $_SESSION['donor_id'];
-$accept_msg=''; if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){ $rid=(int)$_POST['accept_request_id']; try{ $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')"); $q->execute([':did'=>$donor_id,':rid'=>$rid]); $accept_msg='You have accepted the request.'; }catch(Exception $e){ $accept_msg='You have already accepted this request.'; } }
+// Check availability for donor view actions
+$is_available = 1; try{ $c=$conn->prepare("SELECT COALESCE(is_available,1) FROM donors WHERE id=:id"); $c->execute([':id'=>$donor_id]); $is_available=(int)$c->fetchColumn(); }catch(Exception $e){ $is_available=1; }
+$accept_msg=''; if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){ if(!$is_available){ $accept_msg='You are currently not available to accept requests.'; } else { $rid=(int)$_POST['accept_request_id']; try{ $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')"); $q->execute([':did'=>$donor_id,':rid'=>$rid]); $accept_msg='You have accepted the request.'; }catch(Exception $e){ $accept_msg='You have already accepted this request.'; } } }
 $donor_bt=''; try{ $q=$conn->prepare("SELECT blood_type FROM donors WHERE id=:id"); $q->execute([':id'=>$donor_id]); $donor_bt=(string)$q->fetchColumn(); }catch(Exception $e){}
-$stmt=$conn->prepare("SELECT br.id, br.blood_type, br.units_needed, br.urgency, br.created_at, h.hospital_name, h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' ORDER BY br.created_at DESC");
-$stmt->execute([':did'=>$donor_id]); $requests=$stmt->fetchAll(PDO::FETCH_ASSOC);
+$requests=[]; if($is_available){ $stmt=$conn->prepare("SELECT br.id, br.blood_type, br.units_needed, br.urgency, br.created_at, h.hospital_name, h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' ORDER BY br.created_at DESC"); $stmt->execute([':did'=>$donor_id]); $requests=$stmt->fetchAll(PDO::FETCH_ASSOC); }
 
 $conf['page_title']='Blood Requests | BloodBank'; $Objlayout->header($conf); ?>
 <?php $Objlayout->donorDashboardStart($conf,'requests'); ?>
 <div class="card"><div class="card-title">Active Blood Requests</div>
+<?php if(!$is_available): ?><div class="card" style="border-color:#fee2e2;background:#fff1f2;color:#9f1239;margin-bottom:10px;">You are not available to receive requests. Turn on availability from your dashboard.</div><?php endif; ?>
 <?php if($accept_msg): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;margin-bottom:10px;"><?php echo htmlspecialchars($accept_msg); ?></div><?php endif; ?>
 <?php if(empty($requests)): ?><p>No active blood requests at the moment.</p><?php else: ?>
  <div class="table-wrap"><table class="table"><thead><tr><th>Hospital</th><th>City</th><th>Blood Type</th><th>Units Needed</th><th>Urgency</th><th>Date Requested</th><th>Action</th></tr></thead><tbody>
@@ -121,7 +123,7 @@ $conf['page_title']='Blood Requests | BloodBank'; $Objlayout->header($conf); ?>
      <?php $canAccept = (strcasecmp((string)$r['blood_type'], (string)$donor_bt) === 0); if($r['accepted']): ?>
        <span style="color:#065f46;">Accepted</span>
      <?php else: ?>
-       <form method="post" style="display:inline;"><input type="hidden" name="accept_request_id" value="<?php echo (int)$r['id']; ?>"/><button class="btn-primary" type="submit" <?php echo $canAccept?'':'disabled'; ?>>Accept</button></form>
+        <form method="post" style="display:inline;"><input type="hidden" name="accept_request_id" value="<?php echo (int)$r['id']; ?>"/><?php if($is_available): ?><button class="btn-primary" type="submit" <?php echo $canAccept?'':'disabled'; ?>>Accept</button><?php else: ?><button class="btn-primary" type="button" disabled>Accept</button><?php endif; ?></form>
      <?php endif; ?>
    </td>
  </tr><?php endforeach; ?>

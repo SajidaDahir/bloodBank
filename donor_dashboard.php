@@ -5,21 +5,40 @@ require_once 'ClassAutoLoad.php';
 if (!isset($_SESSION['donor_id'])) { header('Location: signin.php'); exit(); }
 $donor_id = $_SESSION['donor_id'];
 
+// Determine availability upfront for guarding actions
+$is_available = 1;
+try {
+    $chk = $conn->prepare("SELECT COALESCE(is_available,1) FROM donors WHERE id=:id");
+    $chk->execute([':id' => $donor_id]);
+    $is_available = (int)$chk->fetchColumn();
+} catch (Exception $e) {
+    $is_available = 1;
+}
+
 // Accept request
 $accept_msg='';
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){
-    $rid=(int)$_POST['accept_request_id'];
-    try{
-        $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')");
-        $q->execute([':did'=>$donor_id,':rid'=>$rid]);
-        $accept_msg='Accepted';
-    }catch(Exception $e){
-        $accept_msg='Accepted'; // Already accepted or duplicate
+    if (!$is_available) {
+        $accept_msg='You are currently not available to accept requests.';
+    } else {
+        $rid=(int)$_POST['accept_request_id'];
+        try{
+            $q=$conn->prepare("INSERT INTO donor_request_responses(donor_id,request_id,status) VALUES(:did,:rid,'Accepted')");
+            $q->execute([':did'=>$donor_id,':rid'=>$rid]);
+            $accept_msg='Accepted';
+        }catch(Exception $e){
+            $accept_msg='Accepted'; // Already accepted or duplicate
+        }
     }
 }
 
 // Toggle availability
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability'])){ try{ $conn->exec("UPDATE donors SET is_available = 1 - IFNULL(is_available,1) WHERE id = ".(int)$donor_id); }catch(Exception $e){} }
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability'])){
+    try { $conn->exec("ALTER TABLE donors ADD COLUMN IF NOT EXISTS is_available TINYINT(1) NOT NULL DEFAULT 1"); } catch(Exception $e) {}
+    try { $conn->exec("UPDATE donors SET is_available = 1 - IFNULL(is_available,1) WHERE id = ".(int)$donor_id); } catch(Exception $e) {}
+    // reflect change locally without a re-query
+    $is_available = 1 - (int)$is_available;
+}
 
 // Fetch donor (fallback if column missing)
 $donor=null; try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,is_available,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC);}catch(Exception $e){ try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC); if($donor){ $donor['is_available']=1; } }catch(Exception $e2){ $donor=null; } }
@@ -29,9 +48,10 @@ if(!$donor){ header('Location: signin.php'); exit(); }
 $totalDonations=0; $lastDonation=null; $pendingMatches=0; $livesSaved=0;
 try{ $q=$conn->prepare("SELECT COUNT(*) AS c, MAX(created_at) AS last_dt FROM donations WHERE donor_id=:id AND status='Completed'"); $q->execute([':id'=>$donor_id]); $row=$q->fetch(PDO::FETCH_ASSOC); $totalDonations=(int)($row['c']??0); $lastDonation=$row['last_dt']??null; }catch(Exception $e){}
 try{ $q=$conn->prepare("SELECT COUNT(*) FROM blood_requests WHERE status='Pending' AND blood_type=:bt"); $q->execute([':bt'=>$donor['blood_type']]); $pendingMatches=(int)$q->fetchColumn(); }catch(Exception $e){}
+if (empty($donor['is_available'])) { $pendingMatches = 0; }
 $livesSaved=$totalDonations;
 
-$activeRequests=[]; try{ $q=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.created_at,h.hospital_name,h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' AND br.blood_type=:bt ORDER BY br.created_at DESC LIMIT 6"); $q->execute([':bt'=>$donor['blood_type'], ':did'=>$donor_id]); $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $activeRequests=[]; }
+$activeRequests=[]; if (!empty($donor['is_available'])) { try{ $q=$conn->prepare("SELECT br.id,br.blood_type,br.units_needed,br.urgency,br.created_at,h.hospital_name,h.city, CASE WHEN drr.id IS NULL THEN 0 ELSE 1 END AS accepted FROM blood_requests br JOIN hospitals h ON br.hospital_id=h.id LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did WHERE br.status='Pending' AND br.blood_type=:bt ORDER BY br.created_at DESC LIMIT 6"); $q->execute([':bt'=>$donor['blood_type'], ':did'=>$donor_id]); $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $activeRequests=[]; } }
 
 $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 ?>
@@ -59,6 +79,9 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
 
 <div class="card" style="margin-top:14px;">
   <div class="card-title">Active Blood Requests Near You</div>
+  <?php if (empty($donor['is_available'])): ?>
+    <div class="card" style="border-color:#fee2e2;background:#fff1f2;color:#9f1239;margin-bottom:10px;">You are not available to receive requests. Turn on availability to see and accept requests.</div>
+  <?php endif; ?>
   <?php if($accept_msg): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;margin-bottom:10px;">Accepted</div><?php endif; ?>
   <?php if (empty($activeRequests)): ?><p>No matching requests at the moment.</p><?php else: ?>
     <div class="grid" style="grid-template-columns:1fr; gap:12px;">

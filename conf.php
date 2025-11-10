@@ -27,5 +27,8 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
+// Ensure required columns exist (lightweight bootstrap migrations)
+try { $conn->exec("ALTER TABLE donors ADD COLUMN IF NOT EXISTS is_available TINYINT(1) NOT NULL DEFAULT 1"); } catch (Exception $e) { /* ignore */ }
+
 // Site Language
 $conf['site_lang'] = 'en';
