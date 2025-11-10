@@ -94,6 +94,30 @@ if (isset($_SESSION['hospital_id'])) {
             <div><label style="display:block;color:#6b7280;font-size:12px;">Urgency</label><select name="urgency" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
             <div style="align-self:end;"><button class="btn-primary" type="submit" style="width:100%;padding:10px 14px;">Post Request</button></div>
         </form>
+        <script>
+          (function(){
+            try {
+              var form = document.querySelector('.actions-grid');
+              if (!form) return;
+              var input = form.querySelector('input[name="blood_type"]');
+              if (!input) return;
+              var wrap = input.parentNode;
+              var select = document.createElement('select');
+              select.name = 'blood_type';
+              select.required = true;
+              select.setAttribute('style', input.getAttribute('style') || '');
+              var opt0 = document.createElement('option');
+              opt0.value = '';
+              opt0.disabled = true; opt0.selected = true;
+              opt0.textContent = 'Select Blood Type';
+              select.appendChild(opt0);
+              ['A+','A-','B+','B-','O+','O-','AB+','AB-'].forEach(function(bt){
+                var o = document.createElement('option'); o.value = bt; o.textContent = bt; select.appendChild(o);
+              });
+              wrap.replaceChild(select, input);
+            } catch(e) {}
+          })();
+        </script>
     </div>
     <div class="card" style="margin-top:12px;"><div class="card-title">Requests List</div>
         <?php if(empty($requests)): ?><p>No requests found.</p><?php else: ?><div class="table-wrap"><table class="table"><thead><tr><th>Blood Type</th><th>Units</th><th>Urgency</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody><?php foreach($requests as $r): ?><tr><td><?php echo htmlspecialchars($r['blood_type']); ?></td><td><?php echo (int)$r['units_needed']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td><td><?php if(strcasecmp((string)$r['status'],'Pending')===0): ?><form method="post" style="display:inline;"><input type="hidden" name="fulfill_request_id" value="<?php echo (int)$r['id']; ?>"/><button class="btn-primary" type="submit" style="margin-right:6px;">Mark Fulfilled</button></form><form method="post" style="display:inline;"><input type="hidden" name="cancel_request_id" value="<?php echo (int)$r['id']; ?>"/><button class="btn-outline" type="submit">Cancel</button></form><?php else: ?><span style="color:#065f46;">Done</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
