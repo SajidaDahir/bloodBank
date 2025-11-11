@@ -9,6 +9,7 @@ class Forms
         <form method="POST" action="auth/donor_signup.php" id="donorSignupForm">
             <label for="fullname">Full Name</label>
             <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+            
 
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="Enter your email" required>
