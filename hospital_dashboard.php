@@ -54,5 +54,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['complete_appointment_id
         }
     } catch(Exception $e){ $banner='Unable to complete appointment.'; }
 }
+// Hospital notifications and appointments
+$notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at,is_read FROM notifications WHERE recipient_type='hospital' AND recipient_id=:id ORDER BY is_read ASC, created_at DESC LIMIT 5"); $nn->execute([':id'=>$hospital_id]); $notifications=$nn->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $notifications=[]; }
+$appointments=[]; try{ $ap=$conn->prepare("SELECT a.id,a.scheduled_at,a.status,d.fullname, br.request_type, br.blood_type FROM appointments a JOIN donors d ON d.id=a.donor_id JOIN blood_requests br ON br.id=a.request_id WHERE a.hospital_id=:hid ORDER BY a.scheduled_at ASC LIMIT 8"); $ap->execute([':hid'=>$hospital_id]); $appointments=$ap->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $appointments=[]; }
+
+$conf['page_title']='BloodBank | Hospital Dashboard';
+$Objlayout->header($conf);
+?>
+<?php $Objlayout->dashboardStart($conf,'dashboard'); ?>
 
 ?>
