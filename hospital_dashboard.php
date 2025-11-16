@@ -63,4 +63,22 @@ $Objlayout->header($conf);
 ?>
 <?php $Objlayout->dashboardStart($conf,'dashboard'); ?>
 
+<?php if(!empty($banner)): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;"><?php echo htmlspecialchars($banner); ?></div><?php endif; ?>
+<!-- Statistics Summary overview -->
+<div class="grid stats-grid">
+  <div class="card stat"><div class="stat-title">Total Requests</div><div class="stat-value"><?php echo (int)$stats['total']; ?></div><div class="stat-hint">All time</div></div>
+  <div class="card stat"><div class="stat-title">Active Requests</div><div class="stat-value text-danger"><?php echo (int)$stats['active']; ?></div><div class="stat-hint">Awaiting donors</div></div>
+  <div class="card stat"><div class="stat-title">Units Received</div><div class="stat-value text-success"><?php echo (int)$stats['units']; ?></div><div class="stat-hint">Blood units</div></div>
+  <div class="card stat hide-mobile"><div class="stat-title">Welcome</div><div class="stat-value small"><?php echo $hospital?htmlspecialchars($hospital['name']):'Hospital'; ?></div><div class="stat-hint">Glad to have you</div></div>
+</div>
+<!-- Quick shortcuts for high priority works -->
+<div class="card">
+  <div class="card-title">Quick Actions</div>
+  <div class="actions-grid">
+    <a class="action" href="blood_requests.php?action=create"><div class="action-icon">＋</div><div class="action-text"><div class="action-title">Create Blood Request</div><div class="action-sub">Post urgent or scheduled request</div></div></a>
+    <a class="action" href="inventory.php"><div class="action-icon">⬒</div><div class="action-text"><div class="action-title">Update Inventory</div><div class="action-sub">Manage blood stock levels</div></div></a>
+    <a class="action" href="blood_requests.php?filter=active"><div class="action-icon">☰</div><div class="action-text"><div class="action-title">View Active Requests</div><div class="action-sub"><?php echo (int)$stats['active']; ?> requests pending</div></div></a>
+  </div>
+</div>
+
 ?>
