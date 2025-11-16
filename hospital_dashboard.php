@@ -80,5 +80,31 @@ $Objlayout->header($conf);
     <a class="action" href="blood_requests.php?filter=active"><div class="action-icon">☰</div><div class="action-text"><div class="action-title">View Active Requests</div><div class="action-sub"><?php echo (int)$stats['active']; ?> requests pending</div></div></a>
   </div>
 </div>
+<?php $low=[]; try{ $inv=$conn->prepare("SELECT blood_type, units_available FROM blood_inventory WHERE hospital_id=:hid ORDER BY blood_type"); $inv->execute([':hid'=>$hospital_id]); foreach($inv->fetchAll(PDO::FETCH_ASSOC) as $row){ if((int)$row['units_available']<=4){ $low[]=$row; } } }catch(Exception $e){} ?>
+<?php if(!empty($low)): ?>
+  <div class="alert-panel"><div class="alert-title">Critical Inventory Alerts</div><div class="alert-grid"><?php foreach($low as $li): ?><div class="alert-card"><div class="alert-type"><?php echo htmlspecialchars($li['blood_type']); ?></div><div class="alert-units"><?php echo (int)$li['units_available']; ?> units</div><div class="alert-critical">Critical</div></div><?php endforeach; ?></div></div>
+<?php endif; ?>
+
+<div class="card">
+  <div class="card-title">Recent Requests</div>
+  <?php if(!empty($requests)): ?>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Type</th><th>Blood Needed</th><th>Units</th><th>Urgency</th><th>Deadline</th><th>Status</th><th>Requested</th></tr></thead><tbody><?php foreach($requests as $r): $deadlineDisplay = !empty($r['deadline_at']) ? date('M j, Y g:i A', strtotime($r['deadline_at'])) : 'None'; ?><tr><td><?php echo htmlspecialchars(ucfirst($r['request_type'] ?? 'specific')); ?></td><td><?php echo htmlspecialchars(bloodbank_format_request_blood_label($r['request_type'] ?? '', $r['blood_type'] ?? '')); ?></td><td><?php echo (int)$r['units']; ?></td><td><?php echo htmlspecialchars($r['urgency']); ?></td><td><?php echo htmlspecialchars($deadlineDisplay); ?></td><td><?php echo htmlspecialchars($r['status']); ?></td><td><?php echo date('M j, Y', strtotime($r['created_at'])); ?></td></tr><?php endforeach; ?></tbody></table></div>
+  <?php else: ?><p>No recent requests found.</p><?php endif; ?>
+</div>
+
+<div class="grid" style="grid-template-columns:1fr; gap:12px;">
+  <div class="card">
+    <div class="card-title">Notifications</div>
+    <?php if(empty($notifications)): ?><p>No notifications.</p><?php else: ?>
+      <ul style="list-style:none;padding:0;margin:0;">
+        <?php foreach($notifications as $n): ?>
+          <li style="padding:8px 0;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:600;"><?php echo htmlspecialchars($n['title']); ?></div>
+            <div style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($n['body'] ?? ''); ?></div>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </div>
 
 ?>
