@@ -133,5 +133,8 @@ $Objlayout->header($conf);
     <?php endif; ?>
   </div>
 </div>
+<!-- Page End -->
+<?php $Objlayout->dashboardEnd(); ?>
+<?php $Objlayout->footer($conf); ?>
 
-?>
+
