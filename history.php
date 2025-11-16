@@ -7,6 +7,7 @@ if (!isset($_SESSION['hospital_id'])) { header('Location: hospital_login.php'); 
 $hospital_id = $_SESSION['hospital_id'];
 
 $requests=[]; $counts=['completed'=>0,'cancelled'=>0,'fulfilled'=>0];
+// Fetch historical requests
 try {
     $stmt=$conn->prepare("SELECT br.id,br.request_type,br.blood_type,br.units_needed,br.urgency,br.deadline_at,br.status,br.created_at,
         (SELECT GROUP_CONCAT(d.fullname SEPARATOR ', ') FROM donor_request_responses drr JOIN donors d ON d.id=drr.donor_id WHERE drr.request_id=br.id AND drr.status='Accepted') AS donors
@@ -18,4 +19,18 @@ try {
     foreach($requests as $r){ $s=strtolower((string)$r['status']); if(strpos($s,'complete')!==false)$counts['completed']++; elseif(strpos($s,'cancel')!==false)$counts['cancelled']++; elseif(strpos($s,'fulfill')!==false)$counts['fulfilled']++; }
 } catch(Exception $e){ $requests=[]; }
 
+//Page Configuration and Header
+
+$conf['page_title']='Request History | BloodBank';
+$Objlayout->header($conf);
+?>
+<?php $Objlayout->dashboardStart($conf,'history'); ?>
+
+
+<div class="grid stats-grid">
+  <div class="card stat"><div class="stat-title">Total Closed</div><div class="stat-value"><?php echo count($requests); ?></div><div class="stat-hint">All time</div></div>
+  <div class="card stat"><div class="stat-title">Completed</div><div class="stat-value text-success"><?php echo (int)$counts['completed']; ?></div><div class="stat-hint">Requests</div></div>
+  <div class="card stat"><div class="stat-title">Fulfilled</div><div class="stat-value"><?php echo (int)$counts['fulfilled']; ?></div><div class="stat-hint">Requests</div></div>
+  <div class="card stat"><div class="stat-title">Cancelled</div><div class="stat-value text-danger"><?php echo (int)$counts['cancelled']; ?></div><div class="stat-hint">Requests</div></div>
+</div>
 
