@@ -39,9 +39,11 @@ CREATE TABLE blood_requests (
     location VARCHAR(150) NULL,
     contact VARCHAR(50) NULL,
     notes TEXT NULL,
-    blood_type ENUM('A+','A-','B+','B-','O+','O-','AB+','AB-') NOT NULL,
+    request_type ENUM('specific','general') NOT NULL DEFAULT 'specific',
+    blood_type ENUM('A+','A-','B+','B-','O+','O-','AB+','AB-') NULL,
     units_needed INT NOT NULL,
     urgency ENUM('Low','Medium','High') DEFAULT 'Medium',
+    deadline_at DATETIME NULL,
     status ENUM('Pending','Fulfilled','Cancelled') DEFAULT 'Pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE
@@ -107,4 +109,3 @@ CREATE TABLE appointments (
     FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE CASCADE,
     FOREIGN KEY (request_id) REFERENCES blood_requests(id) ON DELETE CASCADE
 );
-
