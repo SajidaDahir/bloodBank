@@ -106,5 +106,32 @@ $Objlayout->header($conf);
       </ul>
     <?php endif; ?>
   </div>
+  <div class="card">
+    <div class="card-title">Appointments</div>
+    <?php if(empty($appointments)): ?><p>No appointments scheduled.</p><?php else: ?>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Donor</th><th>Request Type</th><th>Blood Needed</th><th>When</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        <?php foreach($appointments as $a): ?>
+          <tr>
+            <td><?php echo htmlspecialchars($a['fullname']); ?></td>
+            <td><?php echo htmlspecialchars(ucfirst($a['request_type'] ?? 'specific')); ?></td>
+            <td><?php echo htmlspecialchars(bloodbank_format_request_blood_label($a['request_type'] ?? '', $a['blood_type'] ?? '')); ?></td>
+            <td><?php echo date('M j, Y H:i', strtotime($a['scheduled_at'])); ?></td>
+            <td><?php echo htmlspecialchars($a['status']); ?></td>
+            <td>
+              <?php if (strcasecmp((string)$a['status'],'Completed')!==0): ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="complete_appointment_id" value="<?php echo (int)$a['id']; ?>" />
+                  <button class="btn-primary" type="submit">Mark Completed</button>
+                </form>
+              <?php else: ?>
+                <span style="color:#065f46;">Done</span>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </div>
+</div>
 
 ?>
