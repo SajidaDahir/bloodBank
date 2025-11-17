@@ -249,3 +249,6 @@ if (!empty($donor['is_available'])) {
         $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);
     }catch(Exception $e){ $activeRequests=[]; }
 }
+
+// Notifications for donor
+$notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at,is_read FROM notifications WHERE recipient_type='donor' AND recipient_id=:id ORDER BY is_read ASC, created_at DESC LIMIT 5"); $nn->execute([':id'=>$donor_id]); $notifications=$nn->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $notifications=[]; }
