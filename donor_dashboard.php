@@ -176,3 +176,38 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability']))
 $donor=null; try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,is_available,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC);}catch(Exception $e){ try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC); if($donor){ $donor['is_available']=1; } }catch(Exception $e2){ $donor=null; } }
 if(!$donor){ header('Location: signin.php'); exit(); }
 if($donor && $donor_bt===''){ $donor_bt = (string)($donor['blood_type'] ?? ''); }
+
+// Stats and matching
+$totalDonations=0; $lastDonation=null; $pendingMatches=0; $livesSaved=0;
+try{ $q=$conn->prepare("SELECT COUNT(*) AS c, MAX(created_at) AS last_dt FROM donations WHERE donor_id=:id AND status='Completed'"); $q->execute([':id'=>$donor_id]); $row=$q->fetch(PDO::FETCH_ASSOC); $totalDonations=(int)($row['c']??0); $lastDonation=$row['last_dt']??null; }catch(Exception $e){}
+try{
+    $eligible = bloodbank_recipient_types_for_donor($donor_bt);
+    $params = [];
+    $parts = ["request_type='general'"];
+    if(!empty($eligible)){
+        $holders=[];
+        foreach($eligible as $idx=>$btVal){
+            $key=':bt'.$idx;
+            $holders[]=$key;
+            $params[$key]=$btVal;
+        }
+        $parts[]="(request_type='specific' AND blood_type IN (".implode(',', $holders)."))";
+    }
+    $sql="SELECT COUNT(*)
+          FROM blood_requests br
+          LEFT JOIN (
+                SELECT request_id, COUNT(*) AS accepted_total
+                FROM donor_request_responses
+                WHERE status='Accepted'
+                GROUP BY request_id
+          ) stats ON stats.request_id = br.id
+          WHERE br.status='Pending'
+            AND (br.deadline_at IS NULL OR br.deadline_at >= NOW())
+            AND (br.units_needed IS NULL OR br.units_needed <= 0 OR COALESCE(stats.accepted_total,0) < br.units_needed)
+            AND (".implode(' OR ', $parts).")";
+    $q=$conn->prepare($sql);
+    $q->execute($params);
+    $pendingMatches=(int)$q->fetchColumn();
+}catch(Exception $e){}
+if (empty($donor['is_available'])) { $pendingMatches = 0; }
+$livesSaved=$totalDonations;
