@@ -252,3 +252,6 @@ if (!empty($donor['is_available'])) {
 
 // Notifications for donor
 $notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at,is_read FROM notifications WHERE recipient_type='donor' AND recipient_id=:id ORDER BY is_read ASC, created_at DESC LIMIT 5"); $nn->execute([':id'=>$donor_id]); $notifications=$nn->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $notifications=[]; }
+
+// Appointments for donor (upcoming and recent)
+$appointments=[]; try{ $ap=$conn->prepare("SELECT a.id,a.scheduled_at,a.status,h.hospital_name FROM appointments a JOIN hospitals h ON h.id=a.hospital_id WHERE a.donor_id=:id ORDER BY a.scheduled_at DESC LIMIT 5"); $ap->execute([':id'=>$donor_id]); $appointments=$ap->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $appointments=[]; }
