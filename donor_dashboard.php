@@ -211,3 +211,41 @@ try{
 }catch(Exception $e){}
 if (empty($donor['is_available'])) { $pendingMatches = 0; }
 $livesSaved=$totalDonations;
+
+$activeRequests=[];
+if (!empty($donor['is_available'])) {
+    try{
+        $eligible = bloodbank_recipient_types_for_donor($donor_bt);
+        $params = [':did'=>$donor_id];
+        $matchParts = ["br.request_type='general'"];
+        if(!empty($eligible)){
+            $holders=[];
+            foreach($eligible as $idx=>$btVal){
+                $key=':abt'.$idx;
+                $holders[]=$key;
+                $params[$key]=$btVal;
+            }
+            $matchParts[]="(br.request_type='specific' AND br.blood_type IN (".implode(',', $holders)."))";
+        }
+        $sql="SELECT br.id,br.request_type,br.blood_type,br.units_needed,br.urgency,br.deadline_at,br.created_at,h.hospital_name,h.city,
+                     CASE WHEN drr.request_id IS NULL THEN 0 ELSE 1 END AS accepted,
+                     COALESCE(stats.accepted_total,0) AS accepted_total
+              FROM blood_requests br
+              JOIN hospitals h ON br.hospital_id=h.id
+              LEFT JOIN donor_request_responses drr ON drr.request_id=br.id AND drr.donor_id=:did
+              LEFT JOIN (
+                    SELECT request_id, COUNT(*) AS accepted_total
+                    FROM donor_request_responses
+                    WHERE status='Accepted'
+                    GROUP BY request_id
+              ) stats ON stats.request_id = br.id
+              WHERE br.status='Pending'
+                AND (br.deadline_at IS NULL OR br.deadline_at >= NOW())
+                AND (br.units_needed IS NULL OR br.units_needed <= 0 OR COALESCE(stats.accepted_total,0) < br.units_needed)
+                AND (".implode(' OR ', $matchParts).")
+              ORDER BY br.created_at DESC LIMIT 6";
+        $q=$conn->prepare($sql);
+        $q->execute($params);
+        $activeRequests=$q->fetchAll(PDO::FETCH_ASSOC);
+    }catch(Exception $e){ $activeRequests=[]; }
+}
