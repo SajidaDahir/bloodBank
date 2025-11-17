@@ -329,3 +329,44 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
     </div>
   <?php endif; ?>
 </div>
+
+<?php if($schedule_msg): ?><div class="card" style="border-color:#d1fae5;background:#ecfdf5;color:#065f46;margin-top:14px;"><?php echo htmlspecialchars($schedule_msg); ?></div>
+<?php elseif($schedule_error): ?><div class="card" style="border-color:#fee2e2;background:#fef2f2;color:#991b1b;margin-top:14px;"><?php echo htmlspecialchars($schedule_error); ?></div><?php endif; ?>
+
+<div class="card" style="margin-top:14px;">
+  <div class="card-title">Schedule Your Donations</div>
+  <?php if(empty($scheduleRequests)): ?>
+    <p>No accepted requests awaiting scheduling right now. Accept a request to set up an appointment.</p>
+  <?php else: ?>
+    <div class="grid" style="grid-template-columns:1fr; gap:12px;">
+      <?php foreach($scheduleRequests as $sr): ?>
+        <?php
+          $scheduledValue = !empty($sr['scheduled_at']) ? date('Y-m-d\\TH:i', strtotime($sr['scheduled_at'])) : '';
+          $deadlineDisplay = !empty($sr['deadline_at']) ? date('M j, Y g:i A', strtotime($sr['deadline_at'])) : 'No deadline';
+          $deadlineAttr = '';
+          if (!empty($sr['deadline_at'])) {
+              $deadlineAttr = ' max="'.htmlspecialchars(date('Y-m-d\\TH:i', strtotime($sr['deadline_at']))).'"';
+          }
+        ?>
+        <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#fff;">
+          <div style="font-weight:600;color:#111827;"><?php echo htmlspecialchars($sr['hospital_name']); ?></div>
+          <div style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($sr['city']); ?></div>
+          <div style="margin-top:8px;"><strong>Request:</strong> <?php echo htmlspecialchars(ucfirst($sr['request_type'] ?? 'specific')); ?> � -  <?php echo htmlspecialchars(bloodbank_format_request_blood_label($sr['request_type'] ?? '', $sr['blood_type'] ?? '')); ?></div>
+          <div><strong>Urgency:</strong> <?php echo htmlspecialchars($sr['urgency']); ?></div>
+          <div><strong>Deadline:</strong> <?php echo htmlspecialchars($deadlineDisplay); ?></div>
+          <?php if(!empty($sr['appointment_id'])): ?>
+            <div style="margin-top:6px;color:#065f46;font-size:13px;">Scheduled for <?php echo date('M j, Y g:i A', strtotime($sr['scheduled_at'])); ?> <span style="color:#6b7280;">(<?php echo htmlspecialchars($sr['appointment_status'] ?? 'Pending'); ?>)</span></div>
+          <?php else: ?>
+            <div style="margin-top:6px;color:#b91c1c;font-size:13px;">Not scheduled yet</div>
+          <?php endif; ?>
+          <form method="post" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <input type="hidden" name="schedule_request_id" value="<?php echo (int)$sr['request_id']; ?>" />
+            <input type="datetime-local" name="scheduled_at" value="<?php echo htmlspecialchars($scheduledValue); ?>" min="<?php echo date('Y-m-d\\TH:i'); ?>"<?php echo $deadlineAttr; ?> required style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;" <?php echo !empty($donor['is_available']) ? '' : 'disabled'; ?>/>
+            <button class="btn-primary" type="submit" <?php echo !empty($donor['is_available']) ? '' : 'disabled'; ?>><?php echo !empty($sr['appointment_id']) ? 'Update Time' : 'Schedule'; ?></button>
+          </form>
+          <?php if(empty($donor['is_available'])): ?><div style="font-size:12px;color:#b91c1c;margin-top:4px;">Turn on availability to manage appointments.</div><?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
