@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['schedule_request_id']))
                         $upd=$conn->prepare("UPDATE appointments SET scheduled_at=:dt, status='Pending' WHERE id=:id");
                         $upd->execute([':dt'=>$scheduledAt, ':id'=>$existingId]);
                     } else {
-                        $ins=$conn->prepare("INSERT INTO appointment(donor_id,hospital_id,request_id,scheduled_at,status) VALUES(:did,:hid,:rid,:dt,'Pending')");
+                        $ins=$conn->prepare("INSERT INTO appointments(donor_id,hospital_id,request_id,scheduled_at,status) VALUES(:did,:hid,:rid,:dt,'Pending')");
                         $ins->execute([':did'=>$donor_id, ':hid'=>$hid, ':rid'=>$rid, ':dt'=>$scheduledAt]);
                     }
                     $conn->commit();
