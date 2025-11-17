@@ -30,7 +30,7 @@ $schedule_error='';
 $accept_msg='';
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){
     if (!$is_available) {
-        $accept_msg='You are not available to accept requests.';
+        $accept_msg='You are currently not available to accept requests.';
     } else {
         $rid=(int)$_POST['accept_request_id'];
         try{
