@@ -370,3 +370,32 @@ $conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
     </div>
   <?php endif; ?>
 </div>
+
+<div class="grid" style="grid-template-columns:1fr; gap:12px; margin-top:14px;">
+  <div class="card">
+    <div class="card-title">Notifications</div>
+    <?php if(empty($notifications)): ?><p>No notifications yet.</p><?php else: ?>
+      <ul style="list-style:none;padding:0;margin:0;">
+        <?php foreach($notifications as $n): ?>
+          <li style="padding:8px 0;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:600;"><?php echo htmlspecialchars($n['title']); ?></div>
+            <div style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($n['body'] ?? ''); ?></div>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Appointments</div>
+    <?php if(empty($appointments)): ?><p>No appointments scheduled.</p><?php else: ?>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Hospital</th><th>When</th><th>Status</th></tr></thead><tbody>
+        <?php foreach($appointments as $a): ?>
+          <tr><td><?php echo htmlspecialchars($a['hospital_name']); ?></td><td><?php echo date('M j, Y H:i', strtotime($a['scheduled_at'])); ?></td><td><?php echo htmlspecialchars($a['status']); ?></td></tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<?php $Objlayout->dashboardEnd(); $Objlayout->footer($conf); ?>
