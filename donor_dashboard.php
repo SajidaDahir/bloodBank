@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['schedule_request_id']))
                         $ins->execute([':did'=>$donor_id, ':hid'=>$hid, ':rid'=>$rid, ':dt'=>$scheduledAt]);
                     }
                     $conn->commit();
-                    $schedule_msg='Appointment schedul for '.date('M j, Y g:i A', $ts).'.';
+                    $schedule_msg='Appointment scheduled for '.date('M j, Y g:i A', $ts).'.';
                     try {
                         $title='Donor scheduled appointment';
                         $body='A donor scheduled request #'.$rid.' for '.date('M j, Y g:i A', $ts).'.';
