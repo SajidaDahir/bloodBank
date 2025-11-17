@@ -88,3 +88,78 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['accept_request_id'])){
         }
     }
 }
+
+// Schedule appointment (donor initiated)
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['schedule_request_id'])) {
+    if (!$is_available) {
+        $schedule_error = 'Turn on your availability before scheduling.';
+    } else {
+        $rid = (int)($_POST['schedule_request_id'] ?? 0);
+        $dt  = trim((string)($_POST['scheduled_at'] ?? ''));
+        if ($rid <= 0 || $dt === '') {
+            $schedule_error = 'Select a date and time for your visit.';
+        } else {
+            if (strpos($dt,'T') !== false) { $dt = str_replace('T',' ',$dt); }
+            $dt = rtrim($dt, 'Z');
+            $ts = strtotime($dt);
+            if ($ts === false) {
+                $schedule_error = 'Invalid date provided.';
+            } elseif ($ts < time()) {
+                $schedule_error = 'Please choose a future time.';
+            } else {
+                $scheduledAt = date('Y-m-d H:i:s', $ts);
+                try {
+                    $conn->beginTransaction();
+                    $reqStmt = $conn->prepare("SELECT br.id, br.hospital_id, h.hospital_name, br.deadline_at FROM donor_request_responses drr JOIN blood_requests br ON br.id=drr.request_id JOIN hospitals h ON h.id=br.hospital_id WHERE drr.donor_id=:did AND drr.request_id=:rid AND drr.status='Accepted' AND br.status='Pending' AND (br.deadline_at IS NULL OR br.deadline_at >= NOW()) LIMIT 1");
+                    $reqStmt->execute([':did'=>$donor_id, ':rid'=>$rid]);
+                    $reqRow = $reqStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$reqRow) { throw new Exception('You can only schedule accepted, active requests.'); }
+                    if (!empty($reqRow['deadline_at']) && $ts > strtotime($reqRow['deadline_at'])) {
+                        throw new Exception('Selected time exceeds the request deadline.');
+                    }
+                    $hid = (int)$reqRow['hospital_id'];
+                    $apptStmt=$conn->prepare("SELECT id FROM appointments WHERE donor_id=:did AND request_id=:rid LIMIT 1");
+                    $apptStmt->execute([':did'=>$donor_id, ':rid'=>$rid]);
+                    $existingId = $apptStmt->fetchColumn();
+                    if ($existingId) {
+                        $upd=$conn->prepare("UPDATE appointments SET scheduled_at=:dt, status='Pending' WHERE id=:id");
+                        $upd->execute([':dt'=>$scheduledAt, ':id'=>$existingId]);
+                    } else {
+                        $ins=$conn->prepare("INSERT INTO appointment(donor_id,hospital_id,request_id,scheduled_at,status) VALUES(:did,:hid,:rid,:dt,'Pending')");
+                        $ins->execute([':did'=>$donor_id, ':hid'=>$hid, ':rid'=>$rid, ':dt'=>$scheduledAt]);
+                    }
+                    $conn->commit();
+                    $schedule_msg='Appointment schedul for '.date('M j, Y g:i A', $ts).'.';
+                    try {
+                        $title='Donor scheduled appointment';
+                        $body='A donor scheduled request #'.$rid.' for '.date('M j, Y g:i A', $ts).'.';
+                        $link='hospital_dashboard.php#appointments';
+                        $n=$conn->prepare("INSERT INTO notifications(recipient_type,recipient_id,title,body,link) VALUES('hospital',:rid,:t,:b,:l)");
+                        $n->execute([':rid'=>$hid, ':t'=>$title, ':b'=>$body, ':l'=>$link]);
+                        try {
+                            if (!empty($conf['smtp_user'])) {
+                                $hs=$conn->prepare("SELECT hospital_name,email FROM hospitals WHERE id=:id");
+                                $hs->execute([':id'=>$hid]);
+                                $hrow=$hs->fetch(PDO::FETCH_ASSOC);
+                                if ($hrow && !empty($hrow['email'])) {
+                                    $mailContent=[
+                                        'name_from'=>$conf['site_name'],
+                                        'email_from'=>$conf['smtp_user'],
+                                        'name_to'=>$hrow['hospital_name'] ?? 'Hospital',
+                                        'email_to'=>$hrow['email'],
+                                        'subject'=>'A donor scheduled an appointment',
+                                        'body'=>'<p>A donor scheduled request #'.(int)$rid.' for <strong>'.date('M j, Y g:i A', $ts).'</strong>.</p>'
+                                    ];
+                                    $ObjSendMail->Send_Mail($conf,$mailContent);
+                                }
+                            }
+                        } catch(Exception $me){}
+                    } catch(Exception $ne){}
+                } catch(Exception $e){
+                    if($conn && $conn->inTransaction()){ $conn->rollBack(); }
+                    if (empty($schedule_error)) { $schedule_error='Unable to schedule this appointment.'; }
+                }
+            }
+        }
+    }
+}
