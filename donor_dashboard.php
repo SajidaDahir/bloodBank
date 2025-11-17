@@ -270,3 +270,62 @@ try{
     $stmt->execute([':did'=>$donor_id]);
     $scheduleRequests=$stmt->fetchAll(PDO::FETCH_ASSOC);
 }catch(Exception $e){ $scheduleRequests=[]; }
+
+
+$conf['page_title'] = 'BloodBank | Donor Dashboard'; $Objlayout->header($conf);
+?>
+<?php $Objlayout->donorDashboardStart($conf,'dashboard'); ?>
+
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-title">Availability Status</div>
+  <form method="post" style="display:flex;align-items:center;gap:12px;">
+    <input type="hidden" name="toggle_availability" value="1" />
+    <button type="submit" class="btn-outline" style="min-width:140px;"><?php echo !empty($donor['is_available']) ? 'Turn Off' : 'Turn On'; ?></button>
+    <div style="flex:1;">
+      <div style="background:<?php echo !empty($donor['is_available']) ? '#d1fae5' : '#fee2e2'; ?>;color:<?php echo !empty($donor['is_available']) ? '#065f46' : '#991b1b'; ?>;padding:10px;border-radius:8px;">
+        <?php echo !empty($donor['is_available']) ? 'You are currently available to donate' : 'You are not available to receive requests'; ?>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="grid stats-grid">
+  <div class="card stat"><div class="stat-title">Total Donations</div><div class="stat-value"><?php echo $totalDonations; ?></div><div class="stat-hint">Last: <?php echo $lastDonation ? date('M j', strtotime($lastDonation)) : 'None'; ?></div></div>
+  <div class="card stat"><div class="stat-title">Pending Requests</div><div class="stat-value text-danger"><?php echo $pendingMatches; ?></div><div class="stat-hint">Requires response</div></div>
+  <div class="card stat"><div class="stat-title">Lives Saved</div><div class="stat-value text-success"><?php echo $livesSaved; ?></div><div class="stat-hint">Impact score</div></div>
+  <div class="card stat hide-mobile"><div class="stat-title">Blood Type</div><div class="stat-value small"><?php echo htmlspecialchars($donor['blood_type']); ?></div><div class="stat-hint">Profile</div></div>
+</div>
+
+<div class="card" style="margin-top:14px;">
+  <div class="card-title">Active Blood Requests Near You</div>
+  <p style="color:#6b7280;font-size:13px;margin-bottom:8px;">Each acceptance counts as one donated unit. Be sure to schedule and donate before any listed deadline.</p>
+  <?php if (empty($donor['is_available'])): ?>
+    <div class="card" style="border-color:#fee2e2;background:#fff1f2;color:#9f1239;margin-bottom:10px;">You are not available to receive requests. Turn on availability to see and accept requests.</div>
+  <?php endif; ?>
+  <?php if($accept_msg): ?><div class="card" style="border-color:#dbeafe;background:#eff6ff;color:#1e3a8a;margin-bottom:10px;">Accepted</div><?php endif; ?>
+  <?php if (empty($activeRequests)): ?><p>No matching requests at the moment.</p><?php else: ?>
+    <div class="grid" style="grid-template-columns:1fr; gap:12px;">
+      <?php foreach ($activeRequests as $req): $deadlineDisplay = !empty($req['deadline_at']) ? date('M j, Y g:i A', strtotime($req['deadline_at'])) : 'No deadline'; $unitsNeeded = max(1,(int)$req['units_needed']); $filledCount = min($unitsNeeded, (int)($req['accepted_total'] ?? 0)); $hasCapacity = $filledCount < $unitsNeeded; ?>
+        <div style="border:1px solid #fecaca; background:#fff5f5; border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><div style="font-weight:700;color:#b91c1c;">URGENT</div><div style="color:#6b7280; font-size:12px;"><?php echo date('M j, g:i A', strtotime($req['created_at'])); ?></div></div>
+          <div><strong>Request Type:</strong> <?php echo htmlspecialchars(ucfirst($req['request_type'] ?? 'specific')); ?></div>
+          <div><strong>Blood Needed:</strong> <?php echo htmlspecialchars(bloodbank_format_request_blood_label($req['request_type'] ?? '', $req['blood_type'] ?? '')); ?></div>
+          <div><strong>Hospital:</strong> <?php echo htmlspecialchars($req['hospital_name']); ?></div>
+          <div><strong>Units needed:</strong> <?php echo (int)$req['units_needed']; ?> units</div>
+          <div><strong>Filled:</strong> <?php echo $filledCount.' / '.$unitsNeeded; ?></div>
+          <div><strong>Deadline:</strong> <?php echo htmlspecialchars($deadlineDisplay); ?></div>
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <?php if (!$hasCapacity): ?>
+              <span style="color:#6b7280;">Full</span>
+            <?php elseif (!empty($req['accepted'])): ?>
+              <span style="color:#065f46;">Accepted</span>
+            <?php else: ?>
+              <?php $canAccept = bloodbank_can_donor_fulfill_request($donor_bt, $req['request_type'] ?? '', $req['blood_type'] ?? ''); ?>
+              <form method="post"><input type="hidden" name="accept_request_id" value="<?php echo (int)$req['id']; ?>" /><button class="btn-primary" type="submit" <?php echo ($canAccept && $hasCapacity) ? '' : 'disabled'; ?>>Accept Request</button></form>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
