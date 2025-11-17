@@ -15,7 +15,7 @@ $conf['db_type'] = 'pdo';
 $conf['db_host'] = 'localhost';
 //$conf['db_port'] = 3307;
 $conf['db_user'] = 'root';
-$conf['db_pass'] = '3';
+$conf['db_pass'] = '';
 $conf['db_name'] = 'bloodbank';
 
 // Database Connection
