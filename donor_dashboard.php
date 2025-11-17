@@ -255,3 +255,18 @@ $notifications=[]; try{ $nn=$conn->prepare("SELECT id,title,body,link,created_at
 
 // Appointments for donor (upcoming and recent)
 $appointments=[]; try{ $ap=$conn->prepare("SELECT a.id,a.scheduled_at,a.status,h.hospital_name FROM appointments a JOIN hospitals h ON h.id=a.hospital_id WHERE a.donor_id=:id ORDER BY a.scheduled_at DESC LIMIT 5"); $ap->execute([':id'=>$donor_id]); $appointments=$ap->fetchAll(PDO::FETCH_ASSOC);}catch(Exception $e){ $appointments=[]; }
+
+// Accepted requests awaiting scheduling
+$scheduleRequests=[];
+try{
+    $sql="SELECT br.id AS request_id, br.request_type, br.blood_type, br.units_needed, br.urgency, br.deadline_at, h.hospital_name, h.city, ap.id AS appointment_id, ap.scheduled_at, ap.status AS appointment_status
+          FROM donor_request_responses drr
+          JOIN blood_requests br ON br.id=drr.request_id
+          JOIN hospitals h ON h.id=br.hospital_id
+          LEFT JOIN appointments ap ON ap.request_id=br.id AND ap.donor_id=:did
+          WHERE drr.donor_id=:did AND drr.status='Accepted' AND br.status='Pending' AND (br.deadline_at IS NULL OR br.deadline_at >= NOW())
+          ORDER BY (ap.scheduled_at IS NULL) DESC, COALESCE(ap.scheduled_at, br.created_at) ASC";
+    $stmt=$conn->prepare($sql);
+    $stmt->execute([':did'=>$donor_id]);
+    $scheduleRequests=$stmt->fetchAll(PDO::FETCH_ASSOC);
+}catch(Exception $e){ $scheduleRequests=[]; }
