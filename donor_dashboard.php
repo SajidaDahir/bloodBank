@@ -171,3 +171,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability']))
     // reflect change locally without a re-query
     $is_available = 1 - (int)$is_available;
 }
+
+// Fetch donor (fallback if column missing)
+$donor=null; try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,is_available,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC);}catch(Exception $e){ try{ $stmt=$conn->prepare("SELECT fullname,email,phone,blood_type,location,created_at FROM donors WHERE id=:id"); $stmt->execute([':id'=>$donor_id]); $donor=$stmt->fetch(PDO::FETCH_ASSOC); if($donor){ $donor['is_available']=1; } }catch(Exception $e2){ $donor=null; } }
+if(!$donor){ header('Location: signin.php'); exit(); }
+if($donor && $donor_bt===''){ $donor_bt = (string)($donor['blood_type'] ?? ''); }
