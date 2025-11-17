@@ -22,3 +22,7 @@ try {
 } catch (Exception $e) {
     $responses = [];
 }
+
+$conf['page_title'] = 'My Responses | BloodBank';
+$Objlayout->header($conf);
+?>
