@@ -163,3 +163,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['schedule_request_id']))
         }
     }
 }
+
+// Toggle availability
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['toggle_availability'])){
+    try { $conn->exec("ALTER TABLE donors ADD COLUMN IF NOT EXISTS is_available TINYINT(1) NOT NULL DEFAULT 1"); } catch(Exception $e) {}
+    try { $conn->exec("UPDATE donors SET is_available = 1 - IFNULL(is_available,1) WHERE id = ".(int)$donor_id); } catch(Exception $e) {}
+    // reflect change locally without a re-query
+    $is_available = 1 - (int)$is_available;
+}
