@@ -13,13 +13,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Autodetect role if not provided
+    // Auto-detect role if not provided
     if ($role !== 'donor' && $role !== 'hospital') {
-        try { $chk=$conn->prepare("SELECT id FROM donors WHERE email=:email LIMIT 1"); $chk->execute([':email'=>$email]); if($chk->fetch()){ $role='donor'; } } catch(Exception $e){}
-        if ($role!=='donor') { try { $chk=$conn->prepare("SELECT id FROM hospitals WHERE email=:email LIMIT 1"); $chk->execute([':email'=>$email]); if($chk->fetch()){ $role='hospital'; } } catch(Exception $e){} }
-        if ($role !== 'donor' && $role !== 'hospital') { $_SESSION['banner']=['type'=>'error','message'=>'Please select a role.']; header("Location: signin.php"); exit(); }
+        try { 
+            $chk = $conn->prepare("SELECT id FROM donors WHERE email=:email LIMIT 1"); 
+            $chk->execute([':email' => $email]); 
+            if ($chk->fetch()) { $role = 'donor'; } 
+        } catch(Exception $e) {}
+
+        if ($role !== 'donor') { 
+            try { 
+                $chk = $conn->prepare("SELECT id FROM hospitals WHERE email=:email LIMIT 1"); 
+                $chk->execute([':email' => $email]); 
+                if ($chk->fetch()) { $role = 'hospital'; } 
+            } catch(Exception $e) {} 
+        }
+
+        if ($role !== 'donor' && $role !== 'hospital') { 
+            $_SESSION['banner'] = ['type' => 'error', 'message' => 'Please select a role.']; 
+            header("Location: signin.php"); 
+            exit(); 
+        }
     }
 
+    // Donor login
     if ($role === 'donor') {
         $stmt = $conn->prepare("SELECT * FROM donors WHERE email = :email");
         $stmt->execute([':email' => $email]);
@@ -36,14 +53,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['hospital_id'], $_SESSION['hospital_name']);
             $_SESSION['donor_id'] = $donor['id'];
             $_SESSION['donor_name'] = $donor['fullname'];
+
             header("Location: donor_dashboard.php");
             exit();
         } else {
             $_SESSION['banner'] = ['type' => 'error', 'message' => 'Invalid donor credentials.'];
+            $_SESSION['error_input'] = $_POST;
             header("Location: signin.php");
             exit();
         }
-    } elseif ($role === 'hospital') {
+    }
+
+    // Hospital login
+    elseif ($role === 'hospital') {
         $stmt = $conn->prepare("SELECT * FROM hospitals WHERE email = :email");
         $stmt->execute([':email' => $email]);
         $hospital = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -59,14 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['donor_id'], $_SESSION['donor_name']);
             $_SESSION['hospital_id'] = $hospital['id'];
             $_SESSION['hospital_name'] = $hospital['hospital_name'];
+
             header("Location: hospital_dashboard.php");
             exit();
         } else {
             $_SESSION['banner'] = ['type' => 'error', 'message' => 'Invalid hospital credentials.'];
+            $_SESSION['error_input'] = $_POST;
             header("Location: signin.php");
             exit();
         }
     }
+
 } else {
     header("Location: signin.php");
     exit();
